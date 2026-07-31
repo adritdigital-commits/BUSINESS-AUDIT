@@ -1,5 +1,46 @@
-import type { Category, Option, Priority, Question, Service } from "@prisma/client";
+import type { Category, Option, Priority, Question, QuestionType, Service } from "@prisma/client";
 
+/**
+ * The scoring engine is deliberately typed against structural minimums
+ * rather than Prisma row types, so the identical functions run on the
+ * server (against Prisma results) and in the browser (against the JSON the
+ * API returns). Prisma's rows satisfy these interfaces as-is.
+ *
+ * One engine, two runtimes — the live preview and the frozen snapshot
+ * cannot disagree.
+ */
+
+export interface ScorableOption {
+  id: string;
+  points: number;
+  priority?: Priority | null;
+  businessImpact?: string | null;
+  revenueImpact?: string | null;
+  timeToFix?: string | null;
+  costRangeMin?: number | null;
+  costRangeMax?: number | null;
+  recommendedService?: { id: string; name: string } | null;
+}
+
+export interface ScorableQuestion {
+  id: string;
+  type: QuestionType;
+  isActive?: boolean;
+  showIfJson?: unknown;
+  scaleMin?: number | null;
+  scaleMax?: number | null;
+  options: ScorableOption[];
+}
+
+export interface ScorableCategory {
+  id: string;
+  name: string;
+  weight: number;
+  isActive?: boolean;
+  questions: ScorableQuestion[];
+}
+
+// Prisma-shaped aliases, kept for server call sites and test factories.
 export type OptionWithService = Option & { recommendedService: Service | null };
 export type QuestionWithOptions = Question & { options: OptionWithService[] };
 export type CategoryWithQuestions = Category & { questions: QuestionWithOptions[] };
@@ -16,8 +57,8 @@ export interface AnswerEntry {
 
 export type AnswersMap = Record<string, AnswerEntry>;
 
-export function indexQuestions(categories: CategoryWithQuestions[]): Record<string, QuestionWithOptions> {
-  const byId: Record<string, QuestionWithOptions> = {};
+export function indexQuestions(categories: ScorableCategory[]): Record<string, ScorableQuestion> {
+  const byId: Record<string, ScorableQuestion> = {};
   for (const cat of categories) {
     for (const q of cat.questions) byId[q.id] = q;
   }
@@ -34,9 +75,9 @@ export type ShowIfRule =
   | { questionId: string; lte: number };
 
 export function isVisible(
-  question: Pick<Question, "showIfJson">,
+  question: { showIfJson?: unknown },
   answers: AnswersMap,
-  questionsById: Record<string, QuestionWithOptions>
+  questionsById: Record<string, ScorableQuestion>
 ): boolean {
   if (!question.showIfJson) return true;
   const rule = question.showIfJson as ShowIfRule;
@@ -63,9 +104,9 @@ export function isVisible(
  * - Anything else (TEXT, URL, EMAIL, PHONE, NUMBER, DATE, UPLOAD): unscored.
  */
 export function getPoints(
-  question: Pick<Question, "type" | "scaleMin" | "scaleMax">,
+  question: { type: QuestionType; scaleMin?: number | null; scaleMax?: number | null },
   answer: AnswerEntry | undefined,
-  options: OptionWithService[] | undefined
+  options: ScorableOption[] | undefined
 ): number | null {
   if (!answer) return null;
 
@@ -112,13 +153,17 @@ export interface ScoreResult {
  * preview) and server-side (authoritative snapshot on completion) so the
  * numbers never disagree. Mirrors architecture doc §5.
  */
-export function computeScore(categories: CategoryWithQuestions[], answers: AnswersMap): ScoreResult {
+export function computeScore(categories: ScorableCategory[], answers: AnswersMap): ScoreResult {
   const questionsById = indexQuestions(categories);
 
+  // `isActive` is optional so browser payloads that omit it still score;
+  // only an explicit `false` excludes a row.
   const categoryScores = categories
-    .filter((cat) => cat.isActive)
+    .filter((cat) => cat.isActive !== false)
     .map((cat) => {
-      const visibleQuestions = cat.questions.filter((q) => q.isActive && isVisible(q, answers, questionsById));
+      const visibleQuestions = cat.questions.filter(
+        (q) => q.isActive !== false && isVisible(q, answers, questionsById)
+      );
       const points = visibleQuestions
         .map((q) => getPoints(q, answers[q.id], q.options))
         .filter((p): p is number => p !== null);
@@ -153,7 +198,7 @@ const PRIORITY_ORDER: Record<Priority, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
 
 /** Every triggered recommendedService across answered, visible questions, de-duplicated by service (keeping the highest-priority instance). */
 export function collectRecommendations(
-  categories: CategoryWithQuestions[],
+  categories: ScorableCategory[],
   answers: AnswersMap
 ): TriggeredRecommendation[] {
   const triggered: TriggeredRecommendation[] = [];
@@ -161,7 +206,7 @@ export function collectRecommendations(
 
   for (const cat of categories) {
     for (const q of cat.questions) {
-      if (!q.isActive || !isVisible(q, answers, questionsById)) continue;
+      if (q.isActive === false || !isVisible(q, answers, questionsById)) continue;
       const answer = answers[q.id];
       if (!answer) continue;
 
@@ -176,11 +221,13 @@ export function collectRecommendations(
           service: opt.recommendedService.name,
           serviceId: opt.recommendedService.id,
           priority: opt.priority,
-          businessImpact: opt.businessImpact,
-          revenueImpact: opt.revenueImpact,
-          timeToFix: opt.timeToFix,
-          costRangeMin: opt.costRangeMin,
-          costRangeMax: opt.costRangeMax,
+          // These are optional on the structural type (browser payloads may
+          // omit them) but always present on the recommendation.
+          businessImpact: opt.businessImpact ?? null,
+          revenueImpact: opt.revenueImpact ?? null,
+          timeToFix: opt.timeToFix ?? null,
+          costRangeMin: opt.costRangeMin ?? null,
+          costRangeMax: opt.costRangeMax ?? null,
         });
       }
     }

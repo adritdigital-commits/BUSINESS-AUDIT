@@ -197,6 +197,32 @@ describe("computeScore", () => {
     expect(result.categoryScores[0].score).toBe(100);
   });
 
+  it("scores rows that omit isActive, as browser payloads may", () => {
+    // Regression: `isActive` is optional on the structural types so the same
+    // engine can run against API JSON. Only an explicit false must exclude.
+    const cat = makeScoredCategory([100]);
+    const bare = {
+      id: cat.id,
+      name: cat.name,
+      weight: cat.weight,
+      questions: [
+        {
+          id: cat.questions[0].id,
+          type: cat.questions[0].type,
+          scaleMin: null,
+          scaleMax: null,
+          options: [{ id: cat.questions[0].options[0].id, points: 100 }],
+        },
+      ],
+    };
+
+    const result = computeScore([bare], {
+      [bare.questions[0].id]: { optionId: bare.questions[0].options[0].id },
+    });
+    expect(result.categoryScores).toHaveLength(1);
+    expect(result.overall).toBe(100);
+  });
+
   it("omits categories where nothing scoreable was answered", () => {
     const answered = makeScoredCategory([100], { name: "Answered" });
     const untouched = makeScoredCategory([50], { name: "Untouched" });
