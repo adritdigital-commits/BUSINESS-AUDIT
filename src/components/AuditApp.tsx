@@ -568,9 +568,12 @@ export default function AuditApp({
         </div>
 
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <button style={{ ...btnPrimary, opacity: 0.5, cursor: "not-allowed" }} disabled title="PDF export is coming soon">
+          <a
+            href={`/api/assessments/${assessmentId}${resumeToken ? `/pdf?token=${encodeURIComponent(resumeToken)}` : "/pdf"}`}
+            style={{ ...btnPrimary, textDecoration: "none", display: "inline-block" }}
+          >
             <Download size={16} style={{ verticalAlign: "-2px" }} /> Download full report (PDF)
-          </button>
+          </a>
           <button onClick={restart} style={btnGhost}>
             <RotateCcw size={14} style={{ verticalAlign: "-2px" }} /> Restart audit
           </button>
