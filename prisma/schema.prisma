@@ -20,6 +20,19 @@ datasource db {
 // Auth (Supabase-managed; modeled read-only so Profile can hold a real FK)
 // ---------------------------------------------------------------------------
 
+/// Supabase-managed. Modeled with ONLY `id`, which is all the
+/// `profiles.id` foreign key needs.
+///
+/// DANGER: because the real auth.users has many more columns (email,
+/// raw_user_meta_data, raw_app_meta_data, …), any command that reconciles
+/// the database to this schema — `prisma db push`, `prisma migrate dev`,
+/// `prisma migrate reset` — will DROP them and destroy Supabase Auth.
+/// Verified: db push reduced auth.users to a single id column.
+///
+/// Production changes must go through `npm run db:migrate`
+/// (`prisma migrate deploy`), which applies committed SQL and never diffs.
+/// The destructive scripts are gated by scripts/guard-destructive-db.mjs,
+/// which refuses any non-local database.
 model AuthUser {
   id      String   @id @db.Uuid
   profile Profile?
