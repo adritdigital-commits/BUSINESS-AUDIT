@@ -574,6 +574,12 @@ export default function AuditApp({
           >
             <Download size={16} style={{ verticalAlign: "-2px" }} /> Download full report (PDF)
           </a>
+          <a
+            href={`/consultation?assessment=${assessmentId}${resumeToken ? `&token=${encodeURIComponent(resumeToken)}` : ""}`}
+            style={{ ...btnGhost, textDecoration: "none", display: "inline-block" }}
+          >
+            Book a consultation
+          </a>
           <button onClick={restart} style={btnGhost}>
             <RotateCcw size={14} style={{ verticalAlign: "-2px" }} /> Restart audit
           </button>

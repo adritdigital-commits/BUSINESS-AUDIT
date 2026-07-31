@@ -197,8 +197,9 @@ model Client {
   accountManager   Profile? @relation("ClientAccountManager", fields: [accountManagerId], references: [id], onDelete: SetNull)
 
   profiles    Profile[]    @relation("ClientProfiles")
-  assessments Assessment[]
-  proposals   Proposal[]
+  assessments   Assessment[]
+  proposals     Proposal[]
+  consultations Consultation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -243,7 +244,8 @@ model Assessment {
   completedAt DateTime?
   updatedAt   DateTime  @updatedAt
 
-  proposals Proposal[]
+  proposals     Proposal[]
+  consultations Consultation[]
 
   @@index([clientId])
   @@index([status])
@@ -284,5 +286,43 @@ model Proposal {
   @@index([clientId])
   @@index([assessmentId])
   @@map("proposals")
+  @@schema("public")
+}
+
+enum ConsultationStatus {
+  REQUESTED
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+
+  @@schema("public")
+}
+
+/// A consultation request raised from a report or the dashboard.
+model Consultation {
+  id       String  @id @default(cuid())
+  clientId String
+  client   Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  assessmentId String?
+  assessment   Assessment? @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
+
+  name    String
+  email   String
+  phone   String?
+  message String?
+  /// Client-stated preference, e.g. "Weekday mornings". Free text by design.
+  preferredTime String?
+
+  status ConsultationStatus @default(REQUESTED)
+  /// Set once booking is confirmed, whether via Calendly or manually.
+  scheduledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([status])
+  @@map("consultations")
   @@schema("public")
 }
