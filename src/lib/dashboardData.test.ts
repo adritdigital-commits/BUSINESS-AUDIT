@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Profile } from "@prisma/client";
-import { countAnswers, loadDashboardData } from "@/lib/dashboardData";
+import { countAnswers, loadDashboardData, summarizeProgress, type DashboardAssessment } from "@/lib/dashboardData";
 
 const findUnique = vi.fn();
 const findMany = vi.fn();
@@ -97,5 +97,46 @@ describe("loadDashboardData", () => {
 
     const data = await loadDashboardData(profile());
     expect(data.businessName).toBeNull();
+  });
+});
+
+describe("summarizeProgress", () => {
+  function completed(id: string, score: number | null): DashboardAssessment {
+    return {
+      id,
+      status: "COMPLETED",
+      overallScore: score,
+      startedAt: new Date(),
+      completedAt: new Date(),
+      answeredCount: 5,
+    };
+  }
+
+  it("returns null when nothing has been completed", () => {
+    expect(summarizeProgress([])).toBeNull();
+    expect(
+      summarizeProgress([{ ...completed("a", 50), status: "IN_PROGRESS" }])
+    ).toBeNull();
+  });
+
+  it("reports no delta from a single completed audit", () => {
+    const summary = summarizeProgress([completed("a", 60)]);
+    expect(summary).toMatchObject({ completedCount: 1, latestScore: 60, delta: null });
+  });
+
+  it("computes improvement from the first audit to the latest", () => {
+    // Newest first, matching loadDashboardData's ordering.
+    const summary = summarizeProgress([completed("new", 75), completed("old", 40)]);
+    expect(summary).toMatchObject({ completedCount: 2, latestScore: 75, firstScore: 40, delta: 35 });
+  });
+
+  it("reports a negative delta when the score has regressed", () => {
+    const summary = summarizeProgress([completed("new", 30), completed("old", 55)]);
+    expect(summary?.delta).toBe(-25);
+  });
+
+  it("ignores completed audits with no score", () => {
+    const summary = summarizeProgress([completed("a", null), completed("b", 44)]);
+    expect(summary).toMatchObject({ completedCount: 1, latestScore: 44, delta: null });
   });
 });
