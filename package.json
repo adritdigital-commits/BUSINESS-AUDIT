@@ -18,6 +18,9 @@
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "dependencies": {
     "@prisma/client": "6.19.3",
     "@supabase/ssr": "^0.12.4",
