@@ -136,6 +136,18 @@ delete from clients     where id = 'seed-demo-client';
 
 ## 5. Verify
 
+One command checks everything in this section — migrations, tables, enums,
+RLS, policy counts, triggers, helper functions, seed counts, referential
+integrity, and that `auth.users` is undamaged:
+
+```bash
+npm run db:verify
+```
+
+Expect `58 passed, 0 failed — database verified.` It is read-only and exits
+non-zero on any failure, so it can gate a release. The SQL below is the same
+set of checks, kept for running by hand in the Supabase SQL editor.
+
 ### Seed verification
 
 Supabase → SQL Editor:

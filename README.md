@@ -169,6 +169,7 @@ POST   /api/admin/import/json             [staff] upsert-only import
 ```bash
 npm run db:baseline      # one-time Supabase prep before the first db:migrate
 npm run db:migrate       # prisma migrate deploy (production)
+npm run db:verify        # 58 read-only checks: schema, RLS, triggers, seed
 npm run db:migrate:dev   # prisma migrate dev (local, creates migrations)
 npm run db:seed          # load 8 worked categories + service library
 npm run db:studio        # browse data

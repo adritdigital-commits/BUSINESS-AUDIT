@@ -1,10 +1,13 @@
 name: CI
 
+# No branch filters, deliberately. This repository's default branch is not
+# `main`, and a hardcoded branch list has already silently disabled CI once:
+# the filters named a branch that was later deleted, so neither pushes nor
+# pull requests ran any checks. Running everywhere costs a little CI time and
+# cannot fail closed.
 on:
   push:
-    branches: ["main", "claude/**"]
   pull_request:
-    branches: ["main"]
 
 jobs:
   build:
