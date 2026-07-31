@@ -284,3 +284,76 @@ describe("AuditApp — the audit flow", () => {
     expect(screen.getByText("Does your business currently have a website?")).toBeInTheDocument();
   });
 });
+
+describe("AuditApp — resuming a saved assessment", () => {
+  const resumeFetch = (answersJson: Record<string, unknown>) =>
+    mockFetch({
+      "/api/categories": () => ({ jsonBody: { categories: CATEGORIES } }),
+      "/api/assessments/a1/answer": () => ({ jsonBody: { overall: 0, categoryScores: [] } }),
+      "/api/assessments/a1?token=tok": () => ({
+        jsonBody: {
+          assessment: { id: "a1", clientId: "c1", status: "IN_PROGRESS", resumeToken: "tok", overallScore: null, answersJson },
+        },
+      }),
+      "/api/assessments/a1": () => ({
+        jsonBody: {
+          assessment: { id: "a1", clientId: "c1", status: "IN_PROGRESS", resumeToken: null, overallScore: null, answersJson },
+        },
+      }),
+    });
+
+  it("skips the intro and loads saved answers", async () => {
+    const fetchMock = resumeFetch({ q_exists: { optionId: "opt_yes" } });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<AuditApp resumeAssessmentId="a1" resumeToken="tok" />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith("/api/assessments/a1?token=tok", expect.anything());
+    });
+    // Never shows the business-name intro.
+    expect(screen.queryByPlaceholderText("Your business name")).not.toBeInTheDocument();
+  });
+
+  it("lands on the first unanswered question rather than the start", async () => {
+    // q_exists answered with "Yes" ungates q_speed, which is unanswered.
+    const fetchMock = resumeFetch({ q_exists: { optionId: "opt_yes" } });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<AuditApp resumeAssessmentId="a1" resumeToken="tok" />);
+
+    expect(await screen.findByText("How would you rate your site's speed?")).toBeInTheDocument();
+    expect(screen.getByText("2 / 2")).toBeInTheDocument();
+  });
+
+  it("restores the previously selected option when stepping back", async () => {
+    const user = userEvent.setup();
+    const fetchMock = resumeFetch({ q_exists: { optionId: "opt_yes" } });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<AuditApp resumeAssessmentId="a1" resumeToken="tok" />);
+
+    await screen.findByText("How would you rate your site's speed?");
+    await user.click(screen.getByRole("button", { name: /Back/ }));
+
+    expect(await screen.findByText("Does your business currently have a website?")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /Yes, basic site/ })).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("surfaces an error when the saved assessment cannot be loaded", async () => {
+    const fetchMock = mockFetch({
+      "/api/categories": () => ({ jsonBody: { categories: CATEGORIES } }),
+      "/api/assessments/a1": () => ({ ok: false, status: 403, jsonBody: { error: "nope" } }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<AuditApp resumeAssessmentId="a1" resumeToken="bad" />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/no longer valid/i);
+  });
+
+  it("still shows the intro when no resume id is supplied", async () => {
+    vi.stubGlobal(
+      "fetch",
+      mockFetch({ "/api/categories": () => ({ jsonBody: { categories: CATEGORIES } }) })
+    );
+    render(<AuditApp />);
+    expect(await screen.findByPlaceholderText("Your business name")).toBeInTheDocument();
+  });
+});

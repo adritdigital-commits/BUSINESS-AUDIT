@@ -64,18 +64,34 @@ function Gauge({ score, size = 180 }: { score: number; size?: number }) {
 type Stage = "intro" | "audit" | "report";
 type SaveState = "idle" | "saving" | "saved" | "error";
 
-export default function AuditApp() {
-  const [stage, setStage] = useState<Stage>("intro");
+export interface AuditAppProps {
+  /** When set, the component resumes this assessment instead of showing the intro. */
+  resumeAssessmentId?: string;
+  /** Resume token, for anonymous visitors returning via an emailed link. */
+  resumeToken?: string | null;
+  /** Business name to show while resuming, so the header isn't blank. */
+  resumeBusinessName?: string | null;
+}
+
+export default function AuditApp({
+  resumeAssessmentId,
+  resumeToken: initialResumeToken = null,
+  resumeBusinessName = null,
+}: AuditAppProps = {}) {
+  const isResuming = Boolean(resumeAssessmentId);
+  const [stage, setStage] = useState<Stage>(isResuming ? "audit" : "intro");
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<AnswersMap>({});
-  const [businessName, setBusinessName] = useState("");
+  const [businessName, setBusinessName] = useState(resumeBusinessName ?? "");
 
   const [categories, setCategories] = useState<ApiCategory[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  const [assessmentId, setAssessmentId] = useState<string | null>(null);
-  const [resumeToken, setResumeToken] = useState<string | null>(null);
+  const [assessmentId, setAssessmentId] = useState<string | null>(resumeAssessmentId ?? null);
+  const [resumeToken, setResumeToken] = useState<string | null>(initialResumeToken);
+  const [hydrated, setHydrated] = useState(!isResuming);
+  const [resumeError, setResumeError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
@@ -100,6 +116,29 @@ export default function AuditApp() {
     return () => controller.abort();
   }, [reloadKey]);
 
+  // --- Hydrate a resumed assessment --------------------------------------
+  useEffect(() => {
+    if (!resumeAssessmentId) return;
+    const controller = new AbortController();
+
+    auditApi
+      .getAssessment(resumeAssessmentId, initialResumeToken, controller.signal)
+      .then((assessment) => {
+        if (controller.signal.aborted) return;
+        setAnswers(assessment.answersJson ?? {});
+        setHydrated(true);
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        setResumeError(
+          error instanceof ApiError ? error.userMessage : "Couldn't load your saved answers."
+        );
+        setHydrated(true);
+      });
+
+    return () => controller.abort();
+  }, [resumeAssessmentId, initialResumeToken]);
+
   // --- Visible questions, gated by the shared scoring engine -------------
   const allQuestions = useMemo<ApiQuestion[]>(
     () => (categories ?? []).flatMap((c) => c.questions),
@@ -110,6 +149,15 @@ export default function AuditApp() {
     () => allQuestions.filter((q) => isVisible(q, answers, questionsById)),
     [allQuestions, answers, questionsById]
   );
+
+  // On resume, land on the first unanswered question rather than the start.
+  const [jumped, setJumped] = useState(!isResuming);
+  useEffect(() => {
+    if (jumped || !hydrated || !categories) return;
+    const firstUnanswered = visibleQuestions.findIndex((q) => !answers[q.id]);
+    setStep(firstUnanswered === -1 ? Math.max(visibleQuestions.length - 1, 0) : firstUnanswered);
+    setJumped(true);
+  }, [jumped, hydrated, categories, visibleQuestions, answers]);
 
   const current = visibleQuestions[step];
   const totalSteps = visibleQuestions.length;
@@ -260,11 +308,23 @@ export default function AuditApp() {
 
   // ================= AUDIT =================
   if (stage === "audit") {
+    if (resumeError) {
+      return (
+        <Shell>
+          <div style={{ maxWidth: 640, margin: "0 auto", padding: "48px 24px" }}>
+            <ErrorPanel message={resumeError} onRetry={() => window.location.reload()} />
+          </div>
+        </Shell>
+      );
+    }
+
     if (!current) {
       return (
         <Shell>
           <div style={{ maxWidth: 640, margin: "0 auto", padding: "48px 24px" }}>
-            <LoadingPanel label="Preparing your report…" />
+            <LoadingPanel
+              label={!hydrated || !categories ? "Loading your audit…" : "Preparing your report…"}
+            />
           </div>
         </Shell>
       );
