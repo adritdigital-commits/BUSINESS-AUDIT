@@ -122,6 +122,18 @@ export const auditApi = {
     return data.assessment;
   },
 
+  /** Fetches an existing assessment, including its saved answers, to resume it. */
+  async getAssessment(
+    assessmentId: string,
+    token: string | null,
+    signal?: AbortSignal
+  ): Promise<ApiAssessment & { answersJson: Record<string, AnswerEntry> }> {
+    const data = await request<{
+      assessment: ApiAssessment & { answersJson: Record<string, AnswerEntry> };
+    }>(`/api/assessments/${assessmentId}${tokenQuery(token)}`, { signal });
+    return data.assessment;
+  },
+
   /** Autosaves one answer and returns the recomputed live score. */
   async saveAnswer(
     assessmentId: string,
