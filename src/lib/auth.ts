@@ -10,13 +10,29 @@ export class AuthError extends Error {
   }
 }
 
-/** The logged-in caller's profile, or null if unauthenticated. */
+/**
+ * The logged-in caller's profile, or null if unauthenticated.
+ *
+ * Treats a misconfigured or unreachable auth provider as "not signed in"
+ * rather than throwing. Throwing here would surface as a 500 on every
+ * server-rendered page and API route that reads the session, including
+ * public ones — the same site-wide outage the middleware guard prevents.
+ * Callers that require a session use requireProfile/requireRole, which
+ * still reject, so this cannot grant access.
+ */
 export async function getCurrentProfile(): Promise<Profile | null> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return null;
 
-  return prisma.profile.findUnique({ where: { id: user.id } });
+    return await prisma.profile.findUnique({ where: { id: user.id } });
+  } catch (error) {
+    console.error("[auth] Could not resolve the current profile:", error);
+    return null;
+  }
 }
 
 /** Same as getCurrentProfile, but throws a 401 AuthError if not logged in. */
