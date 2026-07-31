@@ -63,6 +63,35 @@ export async function loadDashboardData(profile: Profile): Promise<DashboardData
   };
 }
 
+export interface ProgressSummary {
+  completedCount: number;
+  latestScore: number;
+  firstScore: number;
+  /** Change from the first completed audit to the latest; null if only one. */
+  delta: number | null;
+}
+
+/**
+ * Score movement across completed audits. `assessments` is expected newest
+ * first, matching loadDashboardData's ordering.
+ */
+export function summarizeProgress(assessments: DashboardAssessment[]): ProgressSummary | null {
+  const scored = assessments.filter(
+    (a) => a.status === "COMPLETED" && typeof a.overallScore === "number"
+  );
+  if (scored.length === 0) return null;
+
+  const latestScore = scored[0].overallScore as number;
+  const firstScore = scored[scored.length - 1].overallScore as number;
+
+  return {
+    completedCount: scored.length,
+    latestScore,
+    firstScore,
+    delta: scored.length > 1 ? latestScore - firstScore : null,
+  };
+}
+
 /** answersJson is `{ [questionId]: AnswerEntry }` — count its keys defensively. */
 export function countAnswers(answersJson: unknown): number {
   if (!answersJson || typeof answersJson !== "object" || Array.isArray(answersJson)) return 0;
