@@ -10,7 +10,14 @@
  * time, so a variable added to the hosting dashboard *after* a build is not
  * present in that build. Run this in the build step and the failure is loud
  * and early instead of a 500 on every request.
+ *
+ * Reads `.env` for local development, the same file Prisma and Next.js read.
+ * Real environment variables (Vercel, CI) always take precedence.
  */
+
+import { loadEnvFile } from "./load-env.mjs";
+
+loadEnvFile();
 
 const REQUIRED = [
   {

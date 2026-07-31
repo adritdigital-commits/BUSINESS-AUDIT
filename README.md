@@ -21,6 +21,10 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+Running without a Supabase project — including the local `auth` schema the
+migrations require, and which features work without real credentials — is
+covered in [LOCAL_DEV.md](LOCAL_DEV.md).
+
 ## Stack
 
 | Layer | Choice |

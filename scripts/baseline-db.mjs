@@ -21,6 +21,10 @@
  */
 
 import { spawnSync } from "node:child_process";
+import { loadEnvFile } from "./load-env.mjs";
+
+// Prisma's CLI reads `.env` on its own; a bare node script does not.
+loadEnvFile();
 
 const url = process.env.DIRECT_URL?.trim();
 
