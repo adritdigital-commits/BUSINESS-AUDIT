@@ -6,6 +6,48 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **Nothing submitted through the UI was persisted (P1.2, Bug 1).** The audit
+  component carried its own hardcoded question bank and made no network calls,
+  so no assessment, client, or report was ever written — every completed audit
+  evaporated on refresh and no lead was captured. The UI now loads the question
+  bank from `/api/categories`, creates an assessment on start, autosaves every
+  answer, and renders the server-generated report. Verified end-to-end by
+  driving a real browser against a real database and asserting the resulting
+  rows.
+- Progress bar and scale inputs no longer overflow narrow viewports; verified
+  no horizontal scroll at 375 px.
+
+### Added
+- **Frontend↔backend integration (P1.2)** with loading, error, empty, and
+  saving states throughout, plus a retry path when the question bank fails to
+  load.
+- `src/lib/apiClient.ts` — typed API client with an `ApiError` carrying
+  user-safe messages, so no caller hand-rolls fetch or error handling.
+- `src/lib/format.ts` — Indian-notation currency formatting (₹40k, ₹1.5L,
+  ₹2.5Cr) for budget bands, with NaN and negative guards.
+- Report now shows the total estimated investment band across all
+  recommendations.
+- Accessibility: `radiogroup`/`radio` semantics with `aria-checked` on answer
+  options, `role="progressbar"` with live values, an `aria-live` autosave
+  indicator, a labelled gauge, and `prefers-reduced-motion` support.
+- 22 further tests (77 total): integration coverage of the audit flow against a
+  mocked API — loading/error/empty states, assessment creation, autosave,
+  save-failure recovery, conditional gating in both directions, progress
+  semantics, report rendering, and completion failure handling.
+
+### Changed
+- **The scoring engine is now typed against structural minimums rather than
+  Prisma row types**, so the identical `computeScore` / `isVisible` /
+  `collectRecommendations` functions run in the browser and on the server.
+  This removes the duplicate client-side scoring implementation that was a
+  second source of truth for the number the product sells (Technical Debt 2).
+  Behaviour is unchanged, held in place by the existing suite.
+- The 90-day roadmap now buckets by priority everywhere, replacing the
+  prototype's `index % 3` bucketing (Bug 6).
+- The PDF download button is explicitly disabled and labelled pending P1.11,
+  rather than silently doing nothing.
+
 ### Added
 - **Test infrastructure (P1.1)** — Vitest with jsdom, Testing Library, and v8
   coverage. Reusable domain factories in `tests/factories.ts`.
