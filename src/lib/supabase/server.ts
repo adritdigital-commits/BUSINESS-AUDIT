@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { readSupabaseEnv } from "@/lib/env";
 
 /**
  * Supabase client for use in Server Components, Route Handlers, and Server
@@ -10,9 +11,20 @@ import { cookies } from "next/headers";
 export async function createClient() {
   const cookieStore = await cookies();
 
+  // Fail with a diagnosable message rather than @supabase/ssr's generic one.
+  // Callers that read the session go through getCurrentProfile, which treats
+  // this as "not signed in" instead of propagating a 500.
+  const envResult = readSupabaseEnv();
+  if (!envResult.ok) {
+    throw new Error(
+      `Supabase is not configured: missing ${envResult.missing.join(", ")}. ` +
+        "NEXT_PUBLIC_* values are inlined at build time — set them and redeploy."
+    );
+  }
+
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    envResult.env.url,
+    envResult.env.anonKey,
     {
       cookies: {
         getAll() {
