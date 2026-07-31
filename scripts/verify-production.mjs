@@ -88,6 +88,32 @@ async function main() {
 
   // === 3. Database connection =============================================
   section("3. Database connection");
+
+  // /api/health reports env presence, reachability, migrations and seeding
+  // in one request, so a failure here names the cause instead of hiding it.
+  const healthRes = await get("/api/health");
+  const health = await healthRes.json().catch(() => null);
+  if (health) {
+    check(
+      "all environment variables present",
+      (health.env?.missing?.length ?? 1) === 0,
+      health.env?.missing?.length ? `missing: ${health.env.missing.join(", ")}` : ""
+    );
+    check("database reachable", health.database?.reachable === true, health.database?.code ?? "");
+    check(
+      "migrations applied",
+      health.database?.migrationsApplied === true,
+      health.database?.hint ?? ""
+    );
+    check(
+      "question bank seeded",
+      health.database?.seeded === true,
+      health.database?.counts ? JSON.stringify(health.database.counts) : "run npm run db:seed"
+    );
+  } else {
+    check("/api/health responds", false, `status ${healthRes.status}`);
+  }
+
   const catRes = await get("/api/categories");
   check("GET /api/categories succeeds", catRes.status === 200, `status ${catRes.status}`);
   let categories = [];

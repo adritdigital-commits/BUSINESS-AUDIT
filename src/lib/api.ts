@@ -1,5 +1,6 @@
 import { ZodError } from "zod";
 import { AuthError } from "@/lib/auth";
+import { classifyDbError } from "@/lib/dbDiagnostics";
 
 /** Uniform error → JSON response mapping for route handlers. */
 export function handleApiError(error: unknown): Response {
@@ -13,5 +14,17 @@ export function handleApiError(error: unknown): Response {
     return Response.json({ error: "Not found" }, { status: 404 });
   }
   console.error(error);
+
+  // A bare "Internal server error" makes a deployment undiagnosable without
+  // log access. The classification below is derived from the error type only
+  // — it never echoes Prisma's message, which embeds the host and db user.
+  const dbDiagnosis = classifyDbError(error);
+  if (dbDiagnosis) {
+    return Response.json(
+      { error: "Database error", code: dbDiagnosis.code, hint: dbDiagnosis.hint },
+      { status: 500 }
+    );
+  }
+
   return Response.json({ error: "Internal server error" }, { status: 500 });
 }
