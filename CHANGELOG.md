@@ -6,6 +6,41 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+Nothing yet.
+
+---
+
+## [1.0.0] — 2026-07-31
+
+Version 1.0. See `RELEASE_NOTES.md` for the full summary.
+
+### Added
+- **Authentication UI** — `/login`, `/register`, `/forgot-password`,
+  `/reset-password`, PKCE callback, POST-only signout. Fixes middleware
+  redirecting to routes that did not exist.
+- **Client dashboard** (`/dashboard`) — current score, resumable audit,
+  recent audits, empty state.
+- **Standalone report page** (`/report/[id]`) — owner, staff, or token access.
+- **Assessment history** (`/dashboard/history`) — with score movement since
+  the first completed audit.
+- **Resume assessment** (`/audit/[id]`) — rehydrates saved answers and lands
+  on the first unanswered question.
+- **PDF report download** — two-page A4 document from the same report data.
+- **Book consultation** (`/consultation`) — new `Consultation` model and
+  migration with RLS; optional Calendly.
+- **Admin dashboard** (`/admin`) — completion rate, average score, open
+  consultations, recent activity.
+- **Question management** (`/admin/questions`) — category and question CRUD
+  with bulk reordering.
+- Shared design tokens and chrome (`src/components/ui`), reusable
+  `ReportView`, and a typed API client.
+
+### Fixed
+- `/login` and `/dashboard` 404'd despite middleware redirecting to them.
+- The PDF download button was inert.
+
+### Foundation work included in this release
+
 ### Fixed
 - **Nothing submitted through the UI was persisted (P1.2, Bug 1).** The audit
   component carried its own hardcoded question bank and made no network calls,
@@ -74,6 +109,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 - CI now runs typecheck and the test suite between lint and build.
+
+### Testing
+- 135 unit and integration tests, up from 77.
+- Verified in a real browser against real PostgreSQL: audit completion and
+  database writes, PDF magic bytes, consultation storage, auth rendering,
+  protected-route redirects, resume hydration, and mobile layout at 375 px.
 
 ---
 

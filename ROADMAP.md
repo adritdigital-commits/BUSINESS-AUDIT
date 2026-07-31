@@ -6,7 +6,11 @@ Priorities are defined in `PRIORITY.md`; status of the codebase in
 
 ---
 
-## Now — Version 1.0
+## Shipped — Version 1.0 (31 July 2026)
+
+See `RELEASE_NOTES.md`. Remaining Priority 1 items below are pre-public-launch work.
+
+## Version 1.0 scope
 
 Sequential. A feature is not started until the previous one's tests pass.
 
@@ -14,15 +18,15 @@ Sequential. A feature is not started until the previous one's tests pass.
 |---|---|---|
 | 1.1 | Test infrastructure | **Done** — Vitest + Testing Library, 54 unit tests, wired into CI |
 | 1.2 | Frontend↔backend integration | **Done** — UI persists to the database; verified in a real browser |
-| 1.3 | Auth UI — login, registration, forgot password | **Next** |
-| 1.4 | Client dashboard | Not started |
-| 1.5 | Rate limiting + abuse protection | Not started |
+| 1.3 | Auth UI — login, registration, forgot password | **Done** — v1.0 |
+| 1.4 | Client dashboard | **Done** — v1.0 |
+| 1.5 | Rate limiting + abuse protection | **Next** — top remaining launch blocker |
 | 1.6 | Security headers + CSRF | Not started |
 | 1.7 | Email delivery | Not started |
-| 1.8 | Assessment history + resume | Not started |
-| 1.9 | Admin dashboard shell + role management | Not started |
-| 1.10 | Question + category management UI | Not started |
-| 1.11 | PDF report generator | Not started |
+| 1.8 | Assessment history + resume | **Done** — v1.0 |
+| 1.9 | Admin dashboard shell + role management | **Done** — dashboard shipped; role management UI deferred to v1.1 |
+| 1.10 | Question + category management UI | **Done** — v1.0 (option authoring still via JSON import) |
+| 1.11 | PDF report generator | **Done** — v1.0 |
 | 1.12 | Proposal generator UI | Not started |
 | 1.13 | Business landing page | Not started |
 | 1.14 | Client + company profile | Not started |
