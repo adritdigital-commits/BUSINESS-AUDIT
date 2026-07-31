@@ -1,0 +1,288 @@
+// RakeshProTech Business Growth Audit — production schema
+//
+// Auth model: Supabase Auth owns `auth.users`. `public.profiles` extends it
+// 1:1 (shared primary key) and carries our app-level role. A DB trigger
+// (see prisma/migrations/*_init/migration.sql) auto-inserts a `profiles`
+// row whenever a new `auth.users` row is created, defaulting to CLIENT.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  schemas   = ["auth", "public"]
+}
+
+// ---------------------------------------------------------------------------
+// Auth (Supabase-managed; modeled read-only so Profile can hold a real FK)
+// ---------------------------------------------------------------------------
+
+model AuthUser {
+  id      String   @id @db.Uuid
+  profile Profile?
+
+  @@map("users")
+  @@schema("auth")
+}
+
+enum Role {
+  ADMIN
+  STAFF
+  CLIENT
+
+  @@schema("public")
+}
+
+/// App-level user profile. id == auth.users.id (shared primary key).
+model Profile {
+  id       String @id @db.Uuid
+  authUser AuthUser @relation(fields: [id], references: [id], onDelete: Cascade)
+
+  email     String   @unique
+  fullName  String?
+  role      Role     @default(CLIENT)
+
+  // Set when role == CLIENT: which business this portal user belongs to.
+  clientId String?
+  client   Client? @relation("ClientProfiles", fields: [clientId], references: [id], onDelete: SetNull)
+
+  // Set when role == STAFF/ADMIN and this person owns a book of clients.
+  managedClients      Client[]     @relation("ClientAccountManager")
+  claimedAssessments  Assessment[] @relation("AssessmentClaimedBy")
+  createdProposals    Proposal[]   @relation("ProposalCreatedBy")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("profiles")
+  @@schema("public")
+}
+
+// ---------------------------------------------------------------------------
+// Question bank
+// ---------------------------------------------------------------------------
+
+enum QuestionType {
+  CHOICE
+  CHECKBOX
+  DROPDOWN
+  YES_NO
+  SCALE
+  TEXT
+  URL
+  EMAIL
+  PHONE
+  NUMBER
+  DATE
+  UPLOAD
+
+  @@schema("public")
+}
+
+enum Priority {
+  HIGH
+  MEDIUM
+  LOW
+
+  @@schema("public")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  weight      Float    @default(1)
+  order       Int      @default(0)
+  icon        String?
+  isActive    Boolean  @default(true)
+
+  questions Question[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([order])
+  @@map("categories")
+  @@schema("public")
+}
+
+model Question {
+  id         String       @id @default(cuid())
+  categoryId String
+  category   Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  text     String
+  purpose  String? // why we ask this — shown in admin, not to client
+  type     QuestionType
+  order    Int          @default(0)
+  isActive Boolean      @default(true)
+
+  /// Conditional logic: { "questionId": "...", "op": "equals" | "in" | "gt", "value": ... }
+  showIfJson Json?
+
+  scaleMin Int? @default(1)
+  scaleMax Int? @default(10)
+
+  options Option[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId, order])
+  @@map("questions")
+  @@schema("public")
+}
+
+model Option {
+  id         String   @id @default(cuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  label String
+  points Int
+  order  Int @default(0)
+
+  recommendedServiceId String?
+  recommendedService   Service? @relation(fields: [recommendedServiceId], references: [id], onDelete: SetNull)
+
+  priority       Priority?
+  businessImpact String?
+  revenueImpact  String?
+  timeToFix      String?
+  costRangeMin   Int?
+  costRangeMax   Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([questionId, order])
+  @@map("options")
+  @@schema("public")
+}
+
+model Service {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String?
+  category    String?
+  isActive    Boolean @default(true)
+
+  options Option[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("services")
+  @@schema("public")
+}
+
+// ---------------------------------------------------------------------------
+// Clients, assessments, proposals
+// ---------------------------------------------------------------------------
+
+model Client {
+  id           String  @id @default(cuid())
+  businessName String
+  contactName  String?
+  email        String?
+  phone        String?
+  website      String?
+  industry     String?
+
+  accountManagerId String? @db.Uuid
+  accountManager   Profile? @relation("ClientAccountManager", fields: [accountManagerId], references: [id], onDelete: SetNull)
+
+  profiles    Profile[]    @relation("ClientProfiles")
+  assessments Assessment[]
+  proposals   Proposal[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([accountManagerId])
+  @@map("clients")
+  @@schema("public")
+}
+
+enum AssessmentStatus {
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+
+  @@schema("public")
+}
+
+model Assessment {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  status AssessmentStatus @default(IN_PROGRESS)
+
+  /// { [questionId]: { optionId?, label?, points, value? } } — source of truth
+  answersJson Json @default("{}")
+
+  // Cached snapshots recomputed whenever the question bank or answers
+  // change; historical reportJson is frozen once status == COMPLETED.
+  overallScore       Float?
+  categoryScoresJson Json?
+  reportJson         Json?
+
+  /// Lets an anonymous respondent resume via emailed magic link before
+  /// they have an account (see architecture doc §8).
+  resumeToken String? @unique
+
+  claimedByProfileId String?  @db.Uuid
+  claimedByProfile   Profile? @relation("AssessmentClaimedBy", fields: [claimedByProfileId], references: [id], onDelete: SetNull)
+
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  proposals Proposal[]
+
+  @@index([clientId])
+  @@index([status])
+  @@map("assessments")
+  @@schema("public")
+}
+
+enum ProposalStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  DECLINED
+
+  @@schema("public")
+}
+
+model Proposal {
+  id       String  @id @default(cuid())
+  clientId String
+  client   Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  assessmentId String?
+  assessment   Assessment? @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
+
+  /// Line items derived from triggered recommendations: [{ service, priority, timeline, budget, ... }]
+  itemsJson Json
+  totalMin  Int
+  totalMax  Int
+  status    ProposalStatus @default(DRAFT)
+
+  createdByProfileId String?  @db.Uuid
+  createdByProfile   Profile? @relation("ProposalCreatedBy", fields: [createdByProfileId], references: [id], onDelete: SetNull)
+
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([clientId])
+  @@index([assessmentId])
+  @@map("proposals")
+  @@schema("public")
+}
