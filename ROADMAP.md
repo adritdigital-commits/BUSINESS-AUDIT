@@ -12,8 +12,8 @@ Sequential. A feature is not started until the previous one's tests pass.
 
 | # | Feature | Status |
 |---|---|---|
-| 1.1 | Test infrastructure | **In progress** |
-| 1.2 | Frontend↔backend integration | Not started |
+| 1.1 | Test infrastructure | **Done** — Vitest + Testing Library, 54 unit tests, wired into CI |
+| 1.2 | Frontend↔backend integration | **Next** |
 | 1.3 | Auth UI — login, registration, forgot password | Not started |
 | 1.4 | Client dashboard | Not started |
 | 1.5 | Rate limiting + abuse protection | Not started |

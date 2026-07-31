@@ -7,11 +7,31 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **Test infrastructure (P1.1)** — Vitest with jsdom, Testing Library, and v8
+  coverage. Reusable domain factories in `tests/factories.ts`.
+- 54 unit tests across three suites:
+  - `scoring.test.ts` (29) — point resolution for CHOICE/CHECKBOX/SCALE,
+    SCALE normalization and clamping, conditional visibility for `equals`/
+    `in`/numeric-threshold rules, category averaging, cross-category
+    weighting, exclusion of answers to hidden questions, inactive
+    category/question handling, and recommendation collection with priority
+    sorting and per-service de-duplication.
+  - `report.test.ts` (13) — strength/weakness banding including the 50–69
+    neither-band, sort order, priority-bucketed roadmap, budget summation,
+    null-cost handling, and empty-assessment safety.
+  - `assessmentAccess.test.ts` (12) — the authorization matrix, including
+    that a logged-in client cannot use a resume token to reach another
+    business's assessment.
+- `npm run typecheck`, `npm test`, `npm run test:watch`,
+  `npm run test:coverage`.
 - `DEVELOPMENT_STATUS.md` — full repository audit covering completed features,
   gaps, technical debt, bugs, and improvement opportunities.
 - `PRIORITY.md` — every missing feature ranked P1–P4 with dependency ordering.
 - `ROADMAP.md` — working plan for 1.0, 1.1, and 2.0, plus open decisions.
 - `CHANGELOG.md` — this file.
+
+### Changed
+- CI now runs typecheck and the test suite between lint and build.
 
 ---
 
