@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "postinstall": "prisma generate",
+    "db:baseline": "node scripts/baseline-db.mjs",
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "node scripts/guard-destructive-db.mjs 'prisma migrate dev' && prisma migrate dev",
     "db:push": "node scripts/guard-destructive-db.mjs 'prisma db push' && prisma db push",
