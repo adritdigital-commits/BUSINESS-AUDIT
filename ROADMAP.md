@@ -50,6 +50,19 @@ chat assistant, multi-tenancy, white-label, agency portal.
 
 ---
 
+## Production incidents
+
+**Resolved — site-wide 500 `MIDDLEWARE_INVOCATION_FAILED`.** Supabase
+environment variables were absent from the production build; middleware
+constructed a client from `undefined` credentials and threw on every route.
+Fixed by degrading gracefully at all four env-reading call sites, plus a
+build-time preflight (`scripts/check-env.mjs`) and a 59-check production
+verification suite (`scripts/verify-production.mjs`).
+
+Note: the code fix stops a missing variable from taking the site down, but the
+deployment still needs the variables set **and a rebuild** to function — see
+`DEPLOYMENT_CHECKLIST.md` step 6.
+
 ## Open decisions
 
 **Multi-tenancy boundary.** Reserving a tenant column across the nine existing

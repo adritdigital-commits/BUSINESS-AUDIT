@@ -110,6 +110,43 @@ overflow at 375 px.
 
 ---
 
+## 1.0.1 — production hardening
+
+Resolves the site-wide `500 MIDDLEWARE_INVOCATION_FAILED` outage.
+
+**Cause.** The Supabase client was constructed from environment variables
+asserted non-null. Missing in the production build, the constructor threw
+inside middleware that matches every route. Nothing caught it, so the whole
+site returned 500 — including public pages needing no authentication.
+
+**Fix.** All four env-reading call sites now degrade instead of collapsing:
+middleware logs the missing variable names and lets the request through,
+`getCurrentProfile` treats an unreachable provider as "not signed in", and the
+client factories fail with a message naming what is missing. Supabase calls in
+middleware are wrapped, so an auth-provider outage cannot take the site down.
+
+**Authorization is unchanged.** Every protected page already re-checks the
+session server-side, verified by test and by request: `/dashboard`,
+`/dashboard/history`, `/admin` and `/admin/questions` all still redirect to
+`/login`.
+
+**Prevention.** `scripts/check-env.mjs` runs in the build and fails loudly on
+a misconfiguration. `scripts/verify-production.mjs` runs 59 checks against a
+deployment and exits non-zero on any failure.
+
+**New documentation.** `SUPABASE_SETUP.md`, `VERCEL_SETUP.md`,
+`DEPLOYMENT_CHECKLIST.md`, `.env.example`, `.env.production.example`.
+
+Measured with no Supabase variables at build or runtime:
+
+| | Before | After |
+|---|---|---|
+| Public routes | 500 | 200 |
+| Protected routes | 500 | 307 → `/login` |
+| API suite | unreachable | 34/34 pass |
+
+---
+
 ## Upgrading
 
 Two new migrations since the last release. Apply in order:

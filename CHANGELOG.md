@@ -6,7 +6,32 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Nothing yet.
+### Fixed
+- **Site-wide `500 MIDDLEWARE_INVOCATION_FAILED`.** `createServerClient` was
+  called with `process.env` values asserted non-null, so a missing variable
+  threw inside middleware matching every route. Uncaught, it took down public
+  pages needing no auth at all. Fixed at three call sites sharing the defect:
+  `lib/supabase/middleware.ts` now logs the missing names and passes the
+  request through; `lib/auth.ts` treats an unreachable auth provider as "not
+  signed in"; `lib/supabase/{server,client}.ts` fail with a message naming the
+  missing variables. Supabase calls in middleware are additionally wrapped, so
+  an auth-provider outage cannot take the site down either.
+  Authorization is unchanged — protected pages already re-check server-side.
+
+### Added
+- `src/lib/env.ts` — never throws at module scope, treats blank and
+  whitespace-only values as missing, trims pasted whitespace.
+- `scripts/check-env.mjs` — build-time preflight, wired into `npm run build`,
+  so a misconfiguration fails loudly instead of as a 500 per request.
+- `scripts/verify-production.mjs` — 59-check production suite covering
+  environment variables, middleware, database connection, security, auth
+  surface, assessment creation, autosave, resume, report generation, PDF,
+  consultation booking, and the dashboard/admin/question-management gates.
+  Exits non-zero on failure.
+- `.env.example`, `.env.production.example`, `SUPABASE_SETUP.md`,
+  `VERCEL_SETUP.md`, `DEPLOYMENT_CHECKLIST.md`.
+- `npm run check-env`, `check-env:strict`, `verify:production`.
+- 17 tests (154 total) covering the degradation paths.
 
 ---
 
