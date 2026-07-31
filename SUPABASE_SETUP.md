@@ -53,30 +53,8 @@ export DATABASE_URL="<pooled connection string>"
 export DIRECT_URL="<direct connection string>"
 
 npm run check-env          # confirms all five variables are present
-npm run db:baseline        # one-time: prepares a Supabase DB for Prisma Migrate
 npm run db:migrate         # prisma migrate deploy
 ```
-
-### Why `db:baseline` is required on Supabase
-
-Without it, the very first `db:migrate` against a fresh project fails:
-
-```
-Error: P3005
-The database schema is not empty.
-```
-
-`schema.prisma` declares `schemas = ["auth", "public"]`, so Prisma treats the
-Supabase-owned `auth` schema as part of the database it manages — and `auth`
-is never empty, because GoTrue provisions `auth.users` when the project is
-created. Prisma sees a non-empty database with no migration history and
-refuses to run, even though `public` has zero tables and every migration
-genuinely still needs to be applied.
-
-`db:baseline` applies `prisma/baseline.sql`, which creates the empty
-`_prisma_migrations` table over `DIRECT_URL`. It marks **no** migration as
-applied, so `db:migrate` still runs all three. Re-running it is a no-op, and
-it never touches the `auth` schema.
 
 Three migrations apply in order:
 
@@ -135,18 +113,6 @@ delete from clients     where id = 'seed-demo-client';
 ---
 
 ## 5. Verify
-
-One command checks everything in this section — migrations, tables, enums,
-RLS, policy counts, triggers, helper functions, seed counts, referential
-integrity, and that `auth.users` is undamaged:
-
-```bash
-npm run db:verify
-```
-
-Expect `58 passed, 0 failed — database verified.` It is read-only and exits
-non-zero on any failure, so it can gate a release. The SQL below is the same
-set of checks, kept for running by hand in the Supabase SQL editor.
 
 ### Seed verification
 
@@ -264,5 +230,4 @@ select email, role from public.profiles where role in ('ADMIN','STAFF');
 | `prepared statement "s0" already exists` | `DATABASE_URL` missing `?pgbouncer=true` |
 | `Can't reach database server` | Password not percent-encoded, or wrong region host |
 | `Table 'public.categories' does not exist` | Migrations not run, or run against a different project |
-| `P3005 The database schema is not empty` | `npm run db:baseline` not run first — see §3 |
 | Question bank empty in the app | Migrations ran but `db:seed` did not |

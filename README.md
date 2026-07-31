@@ -13,17 +13,12 @@ unchanged. The backend below is the production layer it plugs into.
 ```bash
 npm install
 cp .env.example .env        # fill in Supabase credentials
-npm run db:baseline         # one-time, on a fresh Supabase database
 npm run db:migrate          # apply migrations
 npm run db:seed             # load the 8 worked categories
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
-
-Running without a Supabase project — including the local `auth` schema the
-migrations require, and which features work without real credentials — is
-covered in [LOCAL_DEV.md](LOCAL_DEV.md).
 
 ## Stack
 
@@ -167,9 +162,7 @@ POST   /api/admin/import/json             [staff] upsert-only import
 ## Scripts
 
 ```bash
-npm run db:baseline      # one-time Supabase prep before the first db:migrate
 npm run db:migrate       # prisma migrate deploy (production)
-npm run db:verify        # 58 read-only checks: schema, RLS, triggers, seed
 npm run db:migrate:dev   # prisma migrate dev (local, creates migrations)
 npm run db:seed          # load 8 worked categories + service library
 npm run db:studio        # browse data

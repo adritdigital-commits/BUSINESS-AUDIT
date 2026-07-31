@@ -23,13 +23,6 @@
  * never diffs against the schema.
  */
 
-import { loadEnvFile } from "./load-env.mjs";
-
-// Prisma's CLI reads `.env` on its own; a bare node script does not. Without
-// this the guard refused every local run with "no DATABASE_URL is set",
-// blocking the documented local workflow (db:migrate:dev, db:push, db:reset).
-loadEnvFile();
-
 const label = process.argv[2] ?? "this command";
 
 const url = process.env.DIRECT_URL || process.env.DATABASE_URL || "";

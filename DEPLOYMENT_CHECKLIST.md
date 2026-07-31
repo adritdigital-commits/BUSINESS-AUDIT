@@ -18,11 +18,8 @@ Details: `SUPABASE_SETUP.md`
 
 ## 2. Database
 
-- [ ] `npm run check-env:production` — all 5 set, right ports, one project
-- [ ] `npm run db:baseline` — one-time; without it `db:migrate` fails with `P3005`
 - [ ] `npm run db:migrate` — all three migrations applied
 - [ ] `npm run db:seed` — question bank loaded
-- [ ] `npm run db:verify` — 58 checks; covers everything below in one command
 - [ ] Seed verified: **8** categories, **13** questions, **35** options, **24** services
 - [ ] Conditional logic verified: **2** questions carry `showIfJson`
 
