@@ -2,15 +2,15 @@
 
 import { useState } from "react";
 import { Button, type ButtonVariant } from "@/components/ui/Button";
-import type { Report } from "@/lib/audit/report";
+import type { Assessment } from "@/engine";
 import { downloadAuditPdf } from "@/lib/pdf/download";
 
 export function DownloadPdfButton({
-  report,
+  assessment,
   variant = "primary",
   label = "Download PDF",
 }: {
-  report: Report;
+  assessment: Assessment;
   variant?: ButtonVariant;
   label?: string;
 }) {
@@ -19,7 +19,7 @@ export function DownloadPdfButton({
   async function handleClick() {
     setStatus("working");
     try {
-      await downloadAuditPdf(report);
+      await downloadAuditPdf(assessment);
       setStatus("idle");
     } catch (error) {
       // Generation happens locally, so a failure here is a bug or an
@@ -64,8 +64,8 @@ export function DownloadPdfButton({
       </Button>
       {status === "error" ? (
         <p role="alert" className="text-[13px] text-critical">
-          The PDF could not be generated in this browser. Use your browser&apos;s print
-          dialog to save this page instead.
+          The PDF could not be generated in this browser. Use your browser&apos;s print dialog
+          to save this page instead.
         </p>
       ) : null}
     </div>

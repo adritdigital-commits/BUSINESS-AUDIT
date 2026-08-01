@@ -1,9 +1,12 @@
-import type { BusinessDetails, ClientDetails } from "@/lib/audit/types";
+import { PRIORITY_PICK_COUNT } from "@/engine/businessProfile";
+import type { BusinessProfile, ContactDetails } from "@/engine/types";
 
 /**
- * Validation for the two detail steps. Deliberately small and synchronous —
- * these forms never leave the browser, so there is no server contract to
- * mirror and no reason to pull a schema library into the bundle for them.
+ * Validation for the two capture steps.
+ *
+ * Deliberately small and synchronous — these forms never leave the browser, so
+ * there is no server contract to mirror and no reason to pull a schema library
+ * into the bundle for them.
  */
 
 export type FieldErrors<T> = Partial<Record<keyof T, string>>;
@@ -14,8 +17,8 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 // Accepts international and Indian formats, with or without separators.
 const PHONE = /^[+()\d][\d\s\-().]{6,19}$/;
 
-export function validateClient(details: ClientDetails): FieldErrors<ClientDetails> {
-  const errors: FieldErrors<ClientDetails> = {};
+export function validateContact(details: ContactDetails): FieldErrors<ContactDetails> {
+  const errors: FieldErrors<ContactDetails> = {};
 
   if (!details.fullName.trim()) {
     errors.fullName = "Tell us who we should address the report to.";
@@ -40,22 +43,34 @@ export function validateClient(details: ClientDetails): FieldErrors<ClientDetail
   return errors;
 }
 
-export function validateBusiness(details: BusinessDetails): FieldErrors<BusinessDetails> {
-  const errors: FieldErrors<BusinessDetails> = {};
+export function validateProfile(profile: BusinessProfile): FieldErrors<BusinessProfile> {
+  const errors: FieldErrors<BusinessProfile> = {};
 
-  if (!details.businessName.trim()) {
+  if (!profile.businessName.trim()) {
     errors.businessName = "The report is titled with your business name.";
   }
 
-  if (details.website.trim() && !isPlausibleUrl(details.website.trim())) {
+  if (profile.website.trim() && !isPlausibleUrl(profile.website.trim())) {
     errors.website = "Enter a web address like example.com, or leave it blank.";
   }
 
-  if (!details.industry.trim()) errors.industry = "Select the closest industry.";
-  if (!details.teamSize.trim()) errors.teamSize = "Select your team size.";
-  if (!details.annualRevenue.trim()) errors.annualRevenue = "Select a revenue band.";
-  if (!details.primaryGoal.trim()) {
-    errors.primaryGoal = "Pick the goal that matters most right now.";
+  if (!profile.industry) errors.industry = "Select the closest industry.";
+  if (!profile.businessType) errors.businessType = "Select what kind of business this is.";
+  if (!profile.businessAge) errors.businessAge = "Select how long you have been trading.";
+  if (!profile.teamSize) errors.teamSize = "Select your team size.";
+  if (!profile.annualRevenue) errors.annualRevenue = "Select a revenue band.";
+  if (!profile.primaryGoal) errors.primaryGoal = "Pick the goal that matters most right now.";
+
+  if (profile.acquisitionChannels.length === 0) {
+    errors.acquisitionChannels = "Select at least one place customers come from today.";
+  }
+
+  if (profile.priorities.length !== PRIORITY_PICK_COUNT) {
+    const remaining = PRIORITY_PICK_COUNT - profile.priorities.length;
+    errors.priorities =
+      remaining > 0
+        ? `Choose ${remaining} more — exactly ${PRIORITY_PICK_COUNT} in total.`
+        : `Choose only ${PRIORITY_PICK_COUNT}.`;
   }
 
   return errors;

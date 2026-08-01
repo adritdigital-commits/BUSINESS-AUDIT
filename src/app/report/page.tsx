@@ -4,25 +4,25 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { FlowShell, FlowSkeleton } from "@/components/audit/FlowShell";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 import { AuditReport } from "@/components/report/AuditReport";
 import { DownloadPdfButton } from "@/components/report/DownloadPdfButton";
-import { SiteFooter } from "@/components/layout/SiteFooter";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useAudit } from "@/lib/audit/AuditProvider";
 
 export default function ReportPage() {
   const router = useRouter();
-  const { ready, isComplete, report, reset } = useAudit();
+  const { ready, isComplete, assessment, reset } = useAudit();
 
-  // Nothing to show without a finished audit — send them to the flow, which
-  // resumes wherever they got to.
-  const missing = ready && (!isComplete || !report);
+  // Nothing to show without a finished assessment — send them to the flow,
+  // which resumes wherever they got to.
+  const missing = ready && (!isComplete || !assessment);
   useEffect(() => {
     if (missing) router.replace("/audit");
   }, [missing, router]);
 
-  if (!ready || missing || !report) {
+  if (!ready || missing || !assessment) {
     return (
       <FlowShell>
         <FlowSkeleton label="Preparing your report" />
@@ -42,7 +42,7 @@ export default function ReportPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <DownloadPdfButton report={report} variant="secondary" />
+            <DownloadPdfButton assessment={assessment} variant="secondary" />
             <ButtonLink href="/proposal" size="md">
               View proposal
               <svg viewBox="0 0 16 16" className="size-4" aria-hidden fill="none">
@@ -58,7 +58,7 @@ export default function ReportPage() {
           </div>
         </Card>
 
-        <AuditReport report={report} />
+        <AuditReport assessment={assessment} />
 
         <div className="no-print mt-14 flex flex-wrap items-center justify-between gap-4 border-t border-hairline pt-8">
           <p className="text-[13px] text-ink-muted">
@@ -80,7 +80,7 @@ export default function ReportPage() {
                 router.push("/");
               }}
             >
-              Start a new audit
+              Start a new assessment
             </Button>
           </div>
         </div>

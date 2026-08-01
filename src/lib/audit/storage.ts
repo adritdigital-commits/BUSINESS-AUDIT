@@ -1,27 +1,27 @@
-import {
-  EMPTY_BUSINESS_DETAILS,
-  EMPTY_CLIENT_DETAILS,
-  type AnswersMap,
-  type BusinessDetails,
-  type ClientDetails,
-} from "@/lib/audit/types";
+import { EMPTY_CONTACT, EMPTY_PROFILE } from "@/engine/businessProfile";
+import type {
+  AcquisitionChannel,
+  AnswersMap,
+  BusinessProfile,
+  ContactDetails,
+  PriorityGoal,
+} from "@/engine/types";
 
 /**
- * Progress lives in the browser. There is no account, no server round-trip
- * and nothing to lose on a refresh — which is also why every read is
- * defensive: the stored blob is user-writable and may be from an older
- * release.
+ * Progress lives in the browser. There is no account, no server round-trip and
+ * nothing to lose on a refresh — which is also why every read is defensive:
+ * the stored blob is user-writable and may be from an older release.
  */
 
-export const STORAGE_KEY = "rakeshprotech.audit.v1";
-export const STORAGE_VERSION = 1;
+export const STORAGE_KEY = "rakeshprotech.audit.v2";
+export const STORAGE_VERSION = 2;
 
 export interface AuditState {
   version: number;
-  client: ClientDetails;
-  business: BusinessDetails;
+  contact: ContactDetails;
+  profile: BusinessProfile;
   answers: AnswersMap;
-  /** Index into the ordered question list. */
+  /** Index into the resolved question flow. */
   currentIndex: number;
   startedAt: string | null;
   completedAt: string | null;
@@ -30,8 +30,8 @@ export interface AuditState {
 export function emptyState(): AuditState {
   return {
     version: STORAGE_VERSION,
-    client: { ...EMPTY_CLIENT_DETAILS },
-    business: { ...EMPTY_BUSINESS_DETAILS },
+    contact: { ...EMPTY_CONTACT },
+    profile: { ...EMPTY_PROFILE, acquisitionChannels: [], priorities: [] },
     answers: {},
     currentIndex: 0,
     startedAt: null,
@@ -51,8 +51,8 @@ export function loadState(): AuditState | null {
   try {
     raw = window.localStorage.getItem(STORAGE_KEY);
   } catch {
-    // Private browsing or a blocked storage partition. Not an error worth
-    // surfacing: the audit still works, it just will not be remembered.
+    // Private browsing or a blocked storage partition. Not worth surfacing:
+    // the audit still works, it just will not be remembered.
     return null;
   }
   if (!raw) return null;
@@ -79,7 +79,7 @@ export function clearState(): void {
   try {
     window.localStorage.removeItem(STORAGE_KEY);
   } catch {
-    // Nothing to do — a failed clear leaves stale progress, not broken state.
+    // A failed clear leaves stale progress, not broken state.
   }
 }
 
@@ -93,8 +93,8 @@ function normalise(input: unknown): AuditState | null {
 
   return {
     version: STORAGE_VERSION,
-    client: mergeStrings(base.client, source.client),
-    business: mergeStrings(base.business, source.business),
+    contact: mergeStrings(base.contact, source.contact),
+    profile: normaliseProfile(source.profile),
     answers: normaliseAnswers(source.answers),
     currentIndex:
       typeof source.currentIndex === "number" && Number.isFinite(source.currentIndex)
@@ -105,10 +105,38 @@ function normalise(input: unknown): AuditState | null {
   };
 }
 
+function normaliseProfile(source: unknown): BusinessProfile {
+  const base = { ...EMPTY_PROFILE };
+  if (!source || typeof source !== "object") {
+    return { ...base, acquisitionChannels: [], priorities: [] };
+  }
+  const incoming = source as Record<string, unknown>;
+
+  const scalars = mergeStrings(
+    {
+      businessName: base.businessName,
+      website: base.website,
+      industry: base.industry,
+      businessType: base.businessType,
+      businessAge: base.businessAge,
+      teamSize: base.teamSize,
+      annualRevenue: base.annualRevenue,
+      primaryGoal: base.primaryGoal,
+    },
+    incoming
+  );
+
+  return {
+    ...scalars,
+    acquisitionChannels: stringArray<AcquisitionChannel>(incoming.acquisitionChannels),
+    priorities: stringArray<PriorityGoal>(incoming.priorities),
+  } as BusinessProfile;
+}
+
 /**
- * Copies string fields from the stored blob onto a known-good default,
- * keyed by the default's own fields — so an extra or renamed key in old
- * storage is dropped rather than carried forward.
+ * Copies string fields from the stored blob onto a known-good default, keyed
+ * by the default's own fields — so an extra or renamed key in old storage is
+ * dropped rather than carried forward.
  */
 function mergeStrings<T extends object>(base: T, source: unknown): T {
   if (!source || typeof source !== "object") return base;
@@ -123,6 +151,18 @@ function mergeStrings<T extends object>(base: T, source: unknown): T {
   return result;
 }
 
+function stringArray<T extends string>(source: unknown): T[] {
+  if (!Array.isArray(source)) return [];
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const value of source) {
+    if (typeof value !== "string" || seen.has(value)) continue;
+    seen.add(value);
+    out.push(value as T);
+  }
+  return out;
+}
+
 function normaliseAnswers(source: unknown): AnswersMap {
   if (!source || typeof source !== "object") return {};
   const result: AnswersMap = {};
@@ -133,9 +173,6 @@ function normaliseAnswers(source: unknown): AnswersMap {
     const next: AnswersMap[string] = {};
 
     if (typeof entry.optionId === "string") next.optionId = entry.optionId;
-    if (typeof entry.value === "number" && Number.isFinite(entry.value)) {
-      next.value = entry.value;
-    }
     if (entry.skipped === true) next.skipped = true;
 
     if (Object.keys(next).length > 0) result[questionId] = next;

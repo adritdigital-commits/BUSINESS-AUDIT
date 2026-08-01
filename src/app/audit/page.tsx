@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { FlowShell, FlowSkeleton } from "@/components/audit/FlowShell";
 import { useAudit } from "@/lib/audit/AuditProvider";
-import { hasErrors, validateBusiness, validateClient } from "@/lib/audit/validation";
+import { hasErrors, validateContact, validateProfile } from "@/lib/audit/validation";
 
 /**
  * Entry point for the journey. Sends the visitor to the furthest step their
@@ -21,20 +21,20 @@ export default function AuditEntryPage() {
       router.replace("/report");
       return;
     }
-    if (hasErrors(validateClient(state.client))) {
+    if (hasErrors(validateContact(state.contact))) {
       router.replace("/audit/client");
       return;
     }
-    if (hasErrors(validateBusiness(state.business))) {
+    if (hasErrors(validateProfile(state.profile))) {
       router.replace("/audit/business");
       return;
     }
     router.replace("/audit/questions");
-  }, [ready, isComplete, state.client, state.business, router, answeredCount, skippedCount]);
+  }, [ready, isComplete, state.contact, state.profile, router, answeredCount, skippedCount]);
 
   return (
     <FlowShell>
-      <FlowSkeleton label="Opening your audit" />
+      <FlowSkeleton label="Opening your assessment" />
     </FlowShell>
   );
 }

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
-import type { Priority } from "@/lib/audit/types";
+import type { Priority } from "@/engine/types";
 
 /**
  * Status is never carried by colour alone: every badge renders its label, and

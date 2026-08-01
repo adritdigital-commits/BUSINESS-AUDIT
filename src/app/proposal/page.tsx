@@ -9,21 +9,25 @@ import { Badge, PriorityBadge } from "@/components/ui/Badge";
 import { ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useAudit } from "@/lib/audit/AuditProvider";
-import { buildProposal } from "@/lib/audit/proposal";
+import { buildProposal } from "@/engine/proposalEngine";
+import type { ProposalLineItem } from "@/engine/proposalEngine";
 import { formatBudgetRange } from "@/lib/format";
 
 export default function ProposalPage() {
   const router = useRouter();
-  const { ready, isComplete, report } = useAudit();
+  const { ready, isComplete, assessment } = useAudit();
 
-  const missing = ready && (!isComplete || !report);
+  const missing = ready && (!isComplete || !assessment);
   useEffect(() => {
     if (missing) router.replace("/audit");
   }, [missing, router]);
 
-  const proposal = useMemo(() => (report ? buildProposal(report) : null), [report]);
+  const proposal = useMemo(
+    () => (assessment ? buildProposal(assessment) : null),
+    [assessment]
+  );
 
-  if (!ready || missing || !report || !proposal) {
+  if (!ready || missing || !assessment || !proposal) {
     return (
       <FlowShell>
         <FlowSkeleton label="Preparing your proposal" />
@@ -54,7 +58,7 @@ export default function ProposalPage() {
             <ButtonLink href="/report" variant="ghost" size="md">
               Back to report
             </ButtonLink>
-            <DownloadPdfButton report={report} label="Download proposal (PDF)" />
+            <DownloadPdfButton assessment={assessment} label="Download proposal (PDF)" />
           </div>
         </Card>
 
@@ -122,7 +126,7 @@ export default function ProposalPage() {
               What this delivers
             </h2>
             <ul className="mt-5 grid gap-3 sm:grid-cols-2">
-              {proposal.outcomes.map((outcome) => (
+              {proposal.outcomes.map((outcome: string) => (
                 <li
                   key={outcome}
                   className="flex gap-3 rounded-card border border-hairline bg-surface p-4 text-sm leading-relaxed text-ink-secondary"
@@ -143,13 +147,13 @@ export default function ProposalPage() {
               Recommended scope
             </h2>
             <p className="mt-3 max-w-prose text-[14.5px] leading-relaxed text-ink-secondary">
-              Each engagement below was triggered by a specific answer in your audit. The
+              Each engagement below was triggered by a specific answer in your assessment. The
               rationale is quoted so nothing here is a guess.
             </p>
 
             {proposal.lineItems.length > 0 ? (
               <ol className="mt-6 flex flex-col gap-4">
-                {proposal.lineItems.map((item, index) => (
+                {proposal.lineItems.map((item: ProposalLineItem, index: number) => (
                   <li key={item.serviceId}>
                     <Card className="p-6">
                       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -192,7 +196,7 @@ export default function ProposalPage() {
                             Deliverables
                           </h4>
                           <ul className="mt-3 flex flex-col gap-2">
-                            {item.deliverables.map((deliverable) => (
+                            {item.deliverables.map((deliverable: string) => (
                               <li
                                 key={deliverable}
                                 className="flex gap-2.5 text-[13.5px] leading-relaxed text-ink-secondary"
@@ -211,7 +215,7 @@ export default function ProposalPage() {
                             Benefits
                           </h4>
                           <ul className="mt-3 flex flex-col gap-2">
-                            {item.benefits.map((benefit) => (
+                            {item.benefits.map((benefit: string) => (
                               <li
                                 key={benefit}
                                 className="flex gap-2.5 text-[13.5px] leading-relaxed text-ink-secondary"
@@ -253,20 +257,28 @@ export default function ProposalPage() {
             >
               Delivery schedule
             </h2>
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {proposal.phases.map((phase) => (
-                <Card key={phase.key} className="flex flex-col p-6">
+                <Card key={phase.id} className="flex flex-col p-6">
                   <p className="text-[12px] uppercase tracking-wider text-ink-muted">
-                    {phase.window}
+                    {phase.label}
                   </p>
-                  <h3 className="mt-1.5 text-[15px] font-semibold text-ink">{phase.title}</h3>
+                  <h3 className="mt-1.5 text-[15px] font-semibold text-ink">
+                    {phase.tasks.length} engagement{phase.tasks.length === 1 ? "" : "s"}
+                  </h3>
                   <p className="mt-2 flex-1 text-[13.5px] leading-relaxed text-ink-secondary">
                     {phase.objective}
                   </p>
+                  <ul className="mt-4 flex flex-col gap-1.5 text-[13px] text-ink-secondary">
+                    {phase.tasks.map((task) => (
+                      <li key={task.serviceId} className="truncate">
+                        {task.title}
+                      </li>
+                    ))}
+                  </ul>
                   <p className="tabular mt-4 border-t border-hairline pt-4 text-[13px] text-ink-muted">
-                    {phase.recommendations.length > 0
-                      ? `${phase.recommendations.length} engagement${phase.recommendations.length === 1 ? "" : "s"} · ${phase.effortDays} days`
-                      : "No work scheduled"}
+                    {phase.effortDays} days ·{" "}
+                    {formatBudgetRange(phase.investmentMin, phase.investmentMax)}
                   </p>
                 </Card>
               ))}
@@ -280,7 +292,7 @@ export default function ProposalPage() {
                 Assumptions and terms
               </h2>
               <ul className="mt-4 flex flex-col gap-2.5">
-                {proposal.assumptions.map((assumption) => (
+                {proposal.assumptions.map((assumption: string) => (
                   <li
                     key={assumption}
                     className="flex gap-2.5 text-[13.5px] leading-relaxed text-ink-secondary"
@@ -306,7 +318,7 @@ export default function ProposalPage() {
                   {proposal.reference}.
                 </p>
                 <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-                  <DownloadPdfButton report={report} label="Download the full PDF" />
+                  <DownloadPdfButton assessment={assessment} label="Download the full PDF" />
                   <ButtonLink href="/report" variant="secondary" size="md">
                     Back to the report
                   </ButtonLink>

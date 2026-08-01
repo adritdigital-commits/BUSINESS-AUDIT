@@ -9,9 +9,10 @@ import {
   useRef,
   useState,
 } from "react";
-import { ORDERED_QUESTIONS, TOTAL_QUESTIONS } from "@/data/questionBank";
-import { buildReport, type Report } from "@/lib/audit/report";
-import { computeScores, isAnswered } from "@/lib/audit/scoring";
+import { runAssessment, type Assessment } from "@/engine";
+import { isProfileComplete, PRIORITY_PICK_COUNT } from "@/engine/businessProfile";
+import { planAssessment, type AssessmentPlan } from "@/engine/questionEngine";
+import { isAnswered } from "@/engine/scoreEngine";
 import {
   clearState,
   emptyState,
@@ -19,16 +20,24 @@ import {
   saveState,
   type AuditState,
 } from "@/lib/audit/storage";
-import type { AnswerEntry, BusinessDetails, ClientDetails } from "@/lib/audit/types";
+import type {
+  AnswerEntry,
+  BusinessProfile,
+  ContactDetails,
+  PriorityGoal,
+} from "@/engine/types";
 
 /**
- * Single source of truth for the audit in progress.
+ * Single source of truth for the assessment in progress.
  *
- * Hydration contract: the provider always renders `emptyState()` on the
- * server and on the first client render, and only adopts saved progress
- * inside an effect. `ready` tells consumers which of the two they are looking
- * at, so nothing that depends on stored data is rendered before the markup
- * has matched.
+ * The provider holds state and persistence only. Every rule — which questions
+ * to ask, what they score, what to recommend — lives in `src/engine`, and is
+ * called from here as a pure function. Nothing in the React tree decides
+ * anything about the assessment itself.
+ *
+ * Hydration contract: the provider always renders `emptyState()` on the server
+ * and on the first client render, and only adopts saved progress inside an
+ * effect. `ready` tells consumers which of the two they are looking at.
  */
 
 export type SaveStatus = "idle" | "saving" | "saved" | "unavailable";
@@ -37,11 +46,13 @@ interface AuditContextValue {
   state: AuditState;
   ready: boolean;
   saveStatus: SaveStatus;
-  /** True once storage has been read and something was actually in it. */
   hasSavedProgress: boolean;
 
-  setClient: (patch: Partial<ClientDetails>) => void;
-  setBusiness: (patch: Partial<BusinessDetails>) => void;
+  setContact: (patch: Partial<ContactDetails>) => void;
+  setProfile: (patch: Partial<BusinessProfile>) => void;
+  toggleChannel: (channel: BusinessProfile["acquisitionChannels"][number]) => void;
+  togglePriority: (goal: PriorityGoal) => void;
+
   setAnswer: (questionId: string, entry: AnswerEntry) => void;
   skipQuestion: (questionId: string) => void;
   setCurrentIndex: (index: number) => void;
@@ -50,11 +61,15 @@ interface AuditContextValue {
   saveNow: () => void;
   reset: () => void;
 
+  /** The live, adaptive question flow for the current profile and answers. */
+  plan: AssessmentPlan;
+  profileComplete: boolean;
   answeredCount: number;
   skippedCount: number;
   progress: number;
   isComplete: boolean;
-  report: Report | null;
+  /** Null until the assessment is finished. */
+  assessment: Assessment | null;
 }
 
 const AuditContext = createContext<AuditContextValue | null>(null);
@@ -65,8 +80,6 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
   const [hasSavedProgress, setHasSavedProgress] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 
-  // Cleared on unmount so a fast navigation never leaves a timer writing to
-  // an unmounted component.
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -94,12 +107,41 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
     };
   }, [state, ready]);
 
-  const setClient = useCallback((patch: Partial<ClientDetails>) => {
-    setState((prev) => ({ ...prev, client: { ...prev.client, ...patch } }));
+  const setContact = useCallback((patch: Partial<ContactDetails>) => {
+    setState((prev) => ({ ...prev, contact: { ...prev.contact, ...patch } }));
   }, []);
 
-  const setBusiness = useCallback((patch: Partial<BusinessDetails>) => {
-    setState((prev) => ({ ...prev, business: { ...prev.business, ...patch } }));
+  const setProfile = useCallback((patch: Partial<BusinessProfile>) => {
+    setState((prev) => ({ ...prev, profile: { ...prev.profile, ...patch } }));
+  }, []);
+
+  const toggleChannel = useCallback(
+    (channel: BusinessProfile["acquisitionChannels"][number]) => {
+      setState((prev) => {
+        const current = prev.profile.acquisitionChannels;
+        const next = current.includes(channel)
+          ? current.filter((value) => value !== channel)
+          : [...current, channel];
+        return { ...prev, profile: { ...prev.profile, acquisitionChannels: next } };
+      });
+    },
+    []
+  );
+
+  const togglePriority = useCallback((goal: PriorityGoal) => {
+    setState((prev) => {
+      const current = prev.profile.priorities;
+      if (current.includes(goal)) {
+        return {
+          ...prev,
+          profile: { ...prev.profile, priorities: current.filter((value) => value !== goal) },
+        };
+      }
+      // Selecting a fourth is a no-op rather than a silent replacement — the
+      // form tells the user to deselect one, so nothing disappears unexplained.
+      if (current.length >= PRIORITY_PICK_COUNT) return prev;
+      return { ...prev, profile: { ...prev.profile, priorities: [...current, goal] } };
+    });
   }, []);
 
   const setAnswer = useCallback((questionId: string, entry: AnswerEntry) => {
@@ -119,16 +161,11 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setCurrentIndex = useCallback((index: number) => {
-    setState((prev) => ({
-      ...prev,
-      currentIndex: Math.min(Math.max(index, 0), TOTAL_QUESTIONS - 1),
-    }));
+    setState((prev) => ({ ...prev, currentIndex: Math.max(index, 0) }));
   }, []);
 
   const markStarted = useCallback(() => {
-    setState((prev) =>
-      prev.startedAt ? prev : { ...prev, startedAt: new Date().toISOString() }
-    );
+    setState((prev) => (prev.startedAt ? prev : { ...prev, startedAt: new Date().toISOString() }));
   }, []);
 
   const markCompleted = useCallback(() => {
@@ -147,28 +184,40 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
     setSaveStatus("idle");
   }, []);
 
+  const profileComplete = useMemo(() => isProfileComplete(state.profile), [state.profile]);
+
+  // Re-planned on every answer: an answer can unlock a follow-up or make a
+  // later question irrelevant. Deterministic and pinned, so already-answered
+  // questions never disappear.
+  const plan = useMemo(
+    () => planAssessment(state.profile, state.answers),
+    [state.profile, state.answers]
+  );
+
   const { answeredCount, skippedCount } = useMemo(() => {
     let answered = 0;
     let skipped = 0;
-    for (const question of ORDERED_QUESTIONS) {
-      const entry = state.answers[question.id];
+    for (const item of plan.questions) {
+      const entry = state.answers[item.question.id];
       if (isAnswered(entry)) answered += 1;
       else if (entry?.skipped) skipped += 1;
     }
     return { answeredCount: answered, skippedCount: skipped };
-  }, [state.answers]);
+  }, [plan, state.answers]);
 
   const isComplete = Boolean(state.completedAt) && answeredCount > 0;
 
-  const report = useMemo(() => {
+  const assessment = useMemo(() => {
     if (!isComplete) return null;
-    return buildReport({
+    return runAssessment({
+      contact: state.contact,
+      profile: state.profile,
       answers: state.answers,
-      client: state.client,
-      business: state.business,
       generatedAt: state.completedAt ?? undefined,
     });
-  }, [isComplete, state.answers, state.client, state.business, state.completedAt]);
+  }, [isComplete, state.contact, state.profile, state.answers, state.completedAt]);
+
+  const total = plan.questions.length;
 
   const value = useMemo<AuditContextValue>(
     () => ({
@@ -176,8 +225,10 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
       ready,
       saveStatus,
       hasSavedProgress,
-      setClient,
-      setBusiness,
+      setContact,
+      setProfile,
+      toggleChannel,
+      togglePriority,
       setAnswer,
       skipQuestion,
       setCurrentIndex,
@@ -185,21 +236,23 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
       markCompleted,
       saveNow,
       reset,
+      plan,
+      profileComplete,
       answeredCount,
       skippedCount,
-      progress: TOTAL_QUESTIONS
-        ? Math.round(((answeredCount + skippedCount) / TOTAL_QUESTIONS) * 100)
-        : 0,
+      progress: total ? Math.round(((answeredCount + skippedCount) / total) * 100) : 0,
       isComplete,
-      report,
+      assessment,
     }),
     [
       state,
       ready,
       saveStatus,
       hasSavedProgress,
-      setClient,
-      setBusiness,
+      setContact,
+      setProfile,
+      toggleChannel,
+      togglePriority,
       setAnswer,
       skipQuestion,
       setCurrentIndex,
@@ -207,10 +260,13 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
       markCompleted,
       saveNow,
       reset,
+      plan,
+      profileComplete,
       answeredCount,
       skippedCount,
+      total,
       isComplete,
-      report,
+      assessment,
     ]
   );
 
@@ -223,14 +279,4 @@ export function useAudit(): AuditContextValue {
     throw new Error("useAudit must be used inside <AuditProvider>");
   }
   return context;
-}
-
-/**
- * Live scores while the questionnaire is still in progress. Kept separate
- * from the provider so a component that only needs the running total does not
- * re-render on every keystroke in the details forms.
- */
-export function useLiveScores() {
-  const { state } = useAudit();
-  return useMemo(() => computeScores(state.answers), [state.answers]);
 }

@@ -1,4 +1,4 @@
-import { bandFor } from "@/lib/audit/scoring";
+import { bandFor } from "@/engine/scoreEngine";
 
 /**
  * The single hero figure the report leads with. Pure SVG computed from props,

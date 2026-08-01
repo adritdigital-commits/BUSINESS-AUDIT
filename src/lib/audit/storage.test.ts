@@ -15,9 +15,12 @@ describe("audit storage", () => {
 
   it("round-trips a complete state", () => {
     const state = emptyState();
-    state.client.fullName = "Priya Sharma";
-    state.business.businessName = "Northline Interiors";
-    state.answers = { "web-presence": { optionId: "web-presence-none" } };
+    state.contact.fullName = "Priya Sharma";
+    state.profile.businessName = "Northline Interiors";
+    state.profile.industry = "healthcare";
+    state.profile.acquisitionChannels = ["whatsapp", "referrals"];
+    state.profile.priorities = ["more-leads", "crm", "seo"];
+    state.answers = { "web-dependency": { optionId: "web-dependency-none" } };
     state.currentIndex = 4;
     state.startedAt = "2026-08-01T09:00:00.000Z";
 
@@ -47,14 +50,33 @@ describe("audit storage", () => {
       STORAGE_KEY,
       JSON.stringify({
         ...emptyState(),
-        client: { fullName: "Priya", email: 42, unexpected: "value" },
+        contact: { fullName: "Priya", email: 42, unexpected: "value" },
       })
     );
 
     const loaded = loadState()!;
-    expect(loaded.client.fullName).toBe("Priya");
-    expect(loaded.client.email).toBe("");
-    expect(loaded.client).not.toHaveProperty("unexpected");
+    expect(loaded.contact.fullName).toBe("Priya");
+    expect(loaded.contact.email).toBe("");
+    expect(loaded.contact).not.toHaveProperty("unexpected");
+  });
+
+  it("drops non-string entries from the multi-select profile fields", () => {
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        ...emptyState(),
+        profile: {
+          businessName: "Northline",
+          acquisitionChannels: ["whatsapp", 7, "whatsapp", null],
+          priorities: "not-an-array",
+        },
+      })
+    );
+
+    const loaded = loadState()!;
+    expect(loaded.profile.acquisitionChannels).toEqual(["whatsapp"]);
+    expect(loaded.profile.priorities).toEqual([]);
+    expect(loaded.profile.businessName).toBe("Northline");
   });
 
   it("drops answers that carry no usable value", () => {
@@ -64,9 +86,8 @@ describe("audit storage", () => {
         ...emptyState(),
         answers: {
           good: { optionId: "a" },
-          scale: { value: 7 },
           skipped: { skipped: true },
-          junk: { optionId: 5, value: "nine" },
+          junk: { optionId: 5 },
           empty: {},
           notAnObject: "nope",
         },
@@ -74,8 +95,8 @@ describe("audit storage", () => {
     );
 
     const loaded = loadState()!;
-    expect(Object.keys(loaded.answers).sort()).toEqual(["good", "scale", "skipped"]);
-    expect(loaded.answers.scale).toEqual({ value: 7 });
+    expect(Object.keys(loaded.answers).sort()).toEqual(["good", "skipped"]);
+    expect(loaded.answers.good).toEqual({ optionId: "a" });
   });
 
   it("clamps a negative or fractional question index", () => {

@@ -1,0 +1,186 @@
+import type { Question } from "@/engine/types";
+
+/** Agencies and creative services: pipeline, utilisation, scope, retention. */
+export const AGENCY_QUESTIONS: Question[] = [
+  {
+    id: "ind-agency-pipeline",
+    title: "How full is the pipeline three months out?",
+    category: "sales",
+    pool: "industry",
+    industries: ["agency"],
+    weight: 1.3,
+    difficulty: "intermediate",
+    options: [
+      {
+        id: "ind-agency-pipeline-unknown",
+        label: "We could not tell you",
+        score: 15,
+        recommendedServices: ["crm-implementation", "demand-strategy"],
+        priority: "HIGH",
+        insight:
+          "Agencies fail on the gap between projects, not on the projects. Forward visibility is the whole game.",
+      },
+      {
+        id: "ind-agency-pipeline-thin",
+        label: "Thin — we sell when we are quiet",
+        score: 30,
+        recommendedServices: ["demand-strategy", "content-engine"],
+        priority: "HIGH",
+        insight:
+          "Selling only when quiet guarantees a feast-and-famine cycle, because pipeline lags effort by months.",
+      },
+      { id: "ind-agency-pipeline-some", label: "Partially covered", score: 65 },
+      { id: "ind-agency-pipeline-full", label: "Covered, with a weighted forecast", score: 100 },
+    ],
+  },
+  {
+    id: "ind-agency-own-marketing",
+    title: "Do you market yourselves as well as you market clients?",
+    category: "marketing",
+    pool: "industry",
+    industries: ["agency"],
+    weight: 1.2,
+    difficulty: "basic",
+    options: [
+      {
+        id: "ind-agency-own-none",
+        label: "No — the cobbler's children",
+        score: 20,
+        recommendedServices: ["content-engine", "organic-social"],
+        priority: "HIGH",
+        insight:
+          "Your own marketing is your strongest case study. Neglecting it undermines every pitch you make.",
+      },
+      {
+        id: "ind-agency-own-sporadic",
+        label: "In bursts, when we have capacity",
+        score: 45,
+        recommendedServices: ["content-engine"],
+        priority: "MEDIUM",
+        insight: "Bursts do not compound. Consistency is what builds inbound.",
+      },
+      { id: "ind-agency-own-regular", label: "Consistently, on a schedule", score: 85 },
+      { id: "ind-agency-own-measured", label: "Consistently, and measured like a client account", score: 100 },
+    ],
+  },
+  {
+    id: "ind-agency-scope",
+    title: "How often does work go beyond what was quoted?",
+    category: "customerExperience",
+    pool: "industry",
+    industries: ["agency"],
+    weight: 1.2,
+    difficulty: "intermediate",
+    options: [
+      {
+        id: "ind-agency-scope-always",
+        label: "Almost always — we absorb it",
+        score: 15,
+        recommendedServices: ["proposal-system", "operations-sop"],
+        priority: "HIGH",
+        insight: "Absorbed scope is the single largest margin leak in agencies, and it is invisible in the P&L.",
+      },
+      {
+        id: "ind-agency-scope-often",
+        label: "Often, and it is awkward to raise",
+        score: 40,
+        recommendedServices: ["proposal-system"],
+        priority: "HIGH",
+        insight: "A written scope with a change process makes the conversation routine instead of confrontational.",
+      },
+      { id: "ind-agency-scope-managed", label: "Sometimes, and we raise a change order", score: 80 },
+      { id: "ind-agency-scope-controlled", label: "Rarely — scope and change control are explicit", score: 100 },
+    ],
+  },
+  {
+    id: "ind-agency-utilisation",
+    title: "Do you know how profitable each client actually is?",
+    category: "analytics",
+    pool: "industry",
+    industries: ["agency"],
+    weight: 1.25,
+    difficulty: "advanced",
+    options: [
+      {
+        id: "ind-agency-utilisation-none",
+        label: "No — we look at revenue, not margin",
+        score: 15,
+        recommendedServices: ["executive-dashboard"],
+        priority: "HIGH",
+        insight:
+          "Most agencies have at least one large client losing money. Revenue rankings hide it completely.",
+      },
+      {
+        id: "ind-agency-utilisation-rough",
+        label: "We have a feel for it",
+        score: 40,
+        recommendedServices: ["executive-dashboard"],
+        priority: "MEDIUM",
+        insight:
+          "Instinct about client profitability is reliably wrong, and always in the same direction.",
+      },
+      { id: "ind-agency-utilisation-tracked", label: "We track time against fee", score: 80 },
+      { id: "ind-agency-utilisation-full", label: "Margin per client, reviewed monthly", score: 100 },
+    ],
+  },
+  {
+    id: "ind-agency-retainers",
+    title: "What share of revenue is recurring?",
+    category: "customerExperience",
+    pool: "industry",
+    industries: ["agency"],
+    weight: 1.2,
+    difficulty: "intermediate",
+    options: [
+      {
+        id: "ind-agency-retainers-none",
+        label: "Almost none — everything is project work",
+        score: 25,
+        recommendedServices: ["retention-programme"],
+        priority: "HIGH",
+        insight:
+          "Project-only agencies restart their sales effort every quarter. Retainers are what make the business valuable.",
+      },
+      {
+        id: "ind-agency-retainers-some",
+        label: "A little",
+        score: 55,
+        recommendedServices: ["retention-programme"],
+        priority: "MEDIUM",
+        insight:
+          "Every point of recurring revenue removes a point of pressure from next quarter's sales effort.",
+      },
+      { id: "ind-agency-retainers-half", label: "About half", score: 85 },
+      { id: "ind-agency-retainers-most", label: "Most of it", score: 100 },
+    ],
+  },
+  {
+    id: "ind-agency-delivery",
+    title: "Is delivery consistent regardless of who runs the account?",
+    category: "automation",
+    pool: "industry",
+    industries: ["agency"],
+    weight: 1.1,
+    difficulty: "advanced",
+    options: [
+      {
+        id: "ind-agency-delivery-person",
+        label: "It depends entirely on the individual",
+        score: 20,
+        recommendedServices: ["operations-sop"],
+        priority: "HIGH",
+        insight: "Quality that lives in people caps the agency at the size those people can personally cover.",
+      },
+      {
+        id: "ind-agency-delivery-partial",
+        label: "Broadly, with notable exceptions",
+        score: 50,
+        recommendedServices: ["operations-sop"],
+        priority: "MEDIUM",
+        insight: "The exceptions are where the complaints come from, and they are not random.",
+      },
+      { id: "ind-agency-delivery-process", label: "Yes — documented process and QA", score: 85 },
+      { id: "ind-agency-delivery-system", label: "Yes, with templated delivery and measured quality", score: 100 },
+    ],
+  },
+];

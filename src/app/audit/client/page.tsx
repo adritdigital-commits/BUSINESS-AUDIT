@@ -6,24 +6,29 @@ import { FlowShell, FlowSkeleton, StepHeading } from "@/components/audit/FlowShe
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SelectField, TextField } from "@/components/ui/Field";
-import { ROLES } from "@/data/formOptions";
 import { useAudit } from "@/lib/audit/AuditProvider";
-import {
-  hasErrors,
-  validateClient,
-  type FieldErrors,
-} from "@/lib/audit/validation";
-import type { ClientDetails } from "@/lib/audit/types";
+import { hasErrors, validateContact, type FieldErrors } from "@/lib/audit/validation";
+import type { ContactDetails } from "@/engine/types";
 
-export default function ClientDetailsPage() {
+const ROLES = [
+  "Founder / Owner",
+  "CEO / Managing Director",
+  "Marketing Lead",
+  "Sales Lead",
+  "Operations Lead",
+  "Consultant / Advisor",
+  "Other",
+];
+
+export default function ContactDetailsPage() {
   const router = useRouter();
-  const { ready, state, setClient, markStarted } = useAudit();
-  const [errors, setErrors] = useState<FieldErrors<ClientDetails>>({});
+  const { ready, state, setContact, markStarted } = useAudit();
+  const [errors, setErrors] = useState<FieldErrors<ContactDetails>>({});
   const [submitted, setSubmitted] = useState(false);
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    const nextErrors = validateClient(state.client);
+    const nextErrors = validateContact(state.contact);
     setErrors(nextErrors);
     setSubmitted(true);
     if (hasErrors(nextErrors)) return;
@@ -31,11 +36,10 @@ export default function ClientDetailsPage() {
     router.push("/audit/business");
   }
 
-  // Once the form has been submitted, errors update live so a corrected field
-  // clears immediately rather than waiting for another submit.
-  function update(patch: Partial<ClientDetails>) {
-    setClient(patch);
-    if (submitted) setErrors(validateClient({ ...state.client, ...patch }));
+  // Once submitted, errors update live so a corrected field clears immediately.
+  function update(patch: Partial<ContactDetails>) {
+    setContact(patch);
+    if (submitted) setErrors(validateContact({ ...state.contact, ...patch }));
   }
 
   if (!ready) {
@@ -59,7 +63,7 @@ export default function ClientDetailsPage() {
           <div className="grid gap-6 sm:grid-cols-2">
             <TextField
               label="Full name"
-              value={state.client.fullName}
+              value={state.contact.fullName}
               onChange={(value) => update({ fullName: value })}
               error={errors.fullName}
               placeholder="Priya Sharma"
@@ -67,7 +71,7 @@ export default function ClientDetailsPage() {
             />
             <SelectField
               label="Your role"
-              value={state.client.role}
+              value={state.contact.role}
               onChange={(value) => update({ role: value })}
               options={ROLES}
               error={errors.role}
@@ -76,7 +80,7 @@ export default function ClientDetailsPage() {
               label="Work email"
               type="email"
               inputMode="email"
-              value={state.client.email}
+              value={state.contact.email}
               onChange={(value) => update({ email: value })}
               error={errors.email}
               placeholder="priya@company.com"
@@ -87,7 +91,7 @@ export default function ClientDetailsPage() {
               type="tel"
               inputMode="tel"
               optional
-              value={state.client.phone}
+              value={state.contact.phone}
               onChange={(value) => update({ phone: value })}
               error={errors.phone}
               placeholder="+91 98765 43210"

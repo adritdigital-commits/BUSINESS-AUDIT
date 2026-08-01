@@ -1,4 +1,4 @@
-import type { Report } from "@/lib/audit/report";
+import type { Assessment } from "@/engine";
 
 /**
  * Generates and downloads the report PDF entirely in the browser.
@@ -7,14 +7,14 @@ import type { Report } from "@/lib/audit/report";
  * `@react-pdf/renderer` out of the server bundle and out of the initial client
  * chunk — the audit stays fast for the many visitors who never export.
  */
-export async function downloadAuditPdf(report: Report): Promise<void> {
+export async function downloadAuditPdf(assessment: Assessment): Promise<void> {
   const { renderAuditPdf } = await import("@/lib/pdf/AuditPdfDocument");
-  const blob = await renderAuditPdf(report);
+  const blob = await renderAuditPdf(assessment);
 
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = pdfFilename(report);
+  link.download = pdfFilename(assessment);
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -24,10 +24,9 @@ export async function downloadAuditPdf(report: Report): Promise<void> {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function pdfFilename(report: Report): string {
-  const slug =
-    slugify(report.business.businessName) || "business";
-  const date = report.generatedAt.slice(0, 10);
+export function pdfFilename(assessment: Assessment): string {
+  const slug = slugify(assessment.profile.businessName) || "business";
+  const date = assessment.generatedAt.slice(0, 10);
   return `growth-audit-${slug}-${date}.pdf`;
 }
 

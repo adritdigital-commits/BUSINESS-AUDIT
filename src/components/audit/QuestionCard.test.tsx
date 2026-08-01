@@ -2,106 +2,106 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { QuestionCard } from "@/components/audit/QuestionCard";
-import { QUESTIONS } from "@/data/questionBank";
+import { getQuestion } from "@/data/questionBanks";
+import type { PlannedQuestion } from "@/engine/questionEngine";
 
-const choice = QUESTIONS.find((question) => question.id === "web-presence")!;
-const scale = QUESTIONS.find((question) => question.id === "web-speed")!;
+const question = getQuestion("web-dependency")!;
 
-describe("QuestionCard — CHOICE", () => {
-  it("renders the question, its help text and every option as a radio", () => {
+function planned(overrides: Partial<PlannedQuestion> = {}): PlannedQuestion {
+  return {
+    question,
+    sectionName: "Website & Digital Presence",
+    reason: null,
+    isFollowUp: false,
+    ...overrides,
+  };
+}
+
+describe("QuestionCard", () => {
+  it("renders the question, its description and every option as a radio", () => {
     render(
-      <QuestionCard question={choice} entry={undefined} onAnswer={vi.fn()} invalid={false} />
+      <QuestionCard item={planned()} entry={undefined} onAnswer={vi.fn()} invalid={false} />
     );
 
-    expect(screen.getByRole("heading", { name: choice.text })).toBeInTheDocument();
-    expect(screen.getByText(choice.help!)).toBeInTheDocument();
-    expect(screen.getAllByRole("radio")).toHaveLength(choice.options.length);
+    expect(screen.getByRole("heading", { name: question.title })).toBeInTheDocument();
+    expect(screen.getByText(question.description!)).toBeInTheDocument();
+    expect(screen.getAllByRole("radio")).toHaveLength(question.options.length);
   });
 
   it("reports the selected option", async () => {
     const onAnswer = vi.fn();
     render(
-      <QuestionCard question={choice} entry={undefined} onAnswer={onAnswer} invalid={false} />
+      <QuestionCard item={planned()} entry={undefined} onAnswer={onAnswer} invalid={false} />
     );
 
-    await userEvent.click(screen.getByRole("radio", { name: /No website at all/ }));
-    expect(onAnswer).toHaveBeenCalledWith({ optionId: "web-presence-none" });
+    await userEvent.click(screen.getByRole("radio", { name: /brochure nobody uses/ }));
+    expect(onAnswer).toHaveBeenCalledWith({ optionId: "web-dependency-none" });
   });
 
   it("marks only the stored answer as checked", () => {
     render(
       <QuestionCard
-        question={choice}
-        entry={{ optionId: "web-presence-dated" }}
+        item={planned()}
+        entry={{ optionId: "web-dependency-half" }}
         onAnswer={vi.fn()}
         invalid={false}
       />
     );
 
-    const checked = screen.getAllByRole("radio").filter(
-      (radio) => radio.getAttribute("aria-checked") === "true"
-    );
+    const checked = screen
+      .getAllByRole("radio")
+      .filter((radio) => radio.getAttribute("aria-checked") === "true");
     expect(checked).toHaveLength(1);
-    expect(checked[0]).toHaveAccessibleName(/dated and rarely touched/);
+    expect(checked[0]).toHaveAccessibleName(/25–50%/);
   });
 
   it("shows no selection when the question was skipped", () => {
     render(
       <QuestionCard
-        question={choice}
-        entry={{ optionId: "web-presence-dated", skipped: true }}
+        item={planned()}
+        entry={{ optionId: "web-dependency-half", skipped: true }}
         onAnswer={vi.fn()}
         invalid={false}
       />
     );
 
     expect(
-      screen.getAllByRole("radio").every((radio) => radio.getAttribute("aria-checked") === "false")
+      screen.getAllByRole("radio").every((r) => r.getAttribute("aria-checked") === "false")
     ).toBe(true);
     expect(screen.getByText(/Skipped/)).toBeInTheDocument();
   });
 
   it("surfaces the validation message only when invalid", () => {
     const { rerender } = render(
-      <QuestionCard question={choice} entry={undefined} onAnswer={vi.fn()} invalid={false} />
+      <QuestionCard item={planned()} entry={undefined} onAnswer={vi.fn()} invalid={false} />
     );
     expect(screen.queryByText(/Choose an answer/)).not.toBeInTheDocument();
 
-    rerender(
-      <QuestionCard question={choice} entry={undefined} onAnswer={vi.fn()} invalid />
-    );
+    rerender(<QuestionCard item={planned()} entry={undefined} onAnswer={vi.fn()} invalid />);
     expect(screen.getByRole("alert")).toHaveTextContent(/Choose an answer, or use Skip/);
   });
-});
 
-describe("QuestionCard — SCALE", () => {
-  it("renders one radio per step, with both ends labelled", () => {
+  it("explains why an adaptive question is being asked", () => {
     render(
-      <QuestionCard question={scale} entry={undefined} onAnswer={vi.fn()} invalid={false} />
+      <QuestionCard
+        item={planned({ reason: "Specific to healthcare & wellness" })}
+        entry={undefined}
+        onAnswer={vi.fn()}
+        invalid={false}
+      />
     );
-
-    expect(screen.getAllByRole("radio")).toHaveLength(10);
-    expect(screen.getByText(scale.scaleLowLabel!)).toBeInTheDocument();
-    expect(screen.getByText(scale.scaleHighLabel!)).toBeInTheDocument();
+    expect(screen.getByText("Specific to healthcare & wellness")).toBeInTheDocument();
   });
 
-  it("reports the selected value as a number", async () => {
-    const onAnswer = vi.fn();
+  it("marks a follow-up as unlocked by a previous answer", () => {
     render(
-      <QuestionCard question={scale} entry={undefined} onAnswer={onAnswer} invalid={false} />
+      <QuestionCard
+        item={planned({ reason: "Asked because of your previous answer", isFollowUp: true })}
+        entry={undefined}
+        onAnswer={vi.fn()}
+        invalid={false}
+      />
     );
-
-    await userEvent.click(screen.getByRole("radio", { name: "7 out of 10" }));
-    expect(onAnswer).toHaveBeenCalledWith({ value: 7 });
-  });
-
-  it("marks the stored value as checked", () => {
-    render(
-      <QuestionCard question={scale} entry={{ value: 4 }} onAnswer={vi.fn()} invalid={false} />
-    );
-    expect(screen.getByRole("radio", { name: "4 out of 10" })).toHaveAttribute(
-      "aria-checked",
-      "true"
-    );
+    expect(screen.getByText("Asked because of your previous answer")).toBeInTheDocument();
   });
 });

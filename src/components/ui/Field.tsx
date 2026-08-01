@@ -80,6 +80,79 @@ export function TextField({
   );
 }
 
+/**
+ * A select over `{ id, label }` choices.
+ *
+ * The value is always the stable id — the rule engine matches on ids, so copy
+ * can be reworded without silently breaking an industry rule. `SelectField`
+ * below is the plain-string variant for lists that have no separate id.
+ */
+export function ChoiceSelectField<T extends string>({
+  label,
+  value,
+  onChange,
+  options,
+  error,
+  placeholder = "Select one",
+}: {
+  label: string;
+  value: T | "";
+  onChange: (value: T) => void;
+  options: ReadonlyArray<{ id: T; label: string }>;
+  error?: string;
+  placeholder?: string;
+}) {
+  const id = useId();
+  const errorId = `${id}-error`;
+
+  return (
+    <div>
+      <Label htmlFor={id}>{label}</Label>
+      <div className="relative">
+        <select
+          id={id}
+          value={value}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : undefined}
+          onChange={(event) => onChange(event.target.value as T)}
+          className={cn(
+            CONTROL,
+            "h-12 appearance-none pr-11",
+            error ? "border-critical/70" : "border-hairline-strong",
+            value ? "text-ink" : "text-ink-muted"
+          )}
+        >
+          <option value="">{placeholder}</option>
+          {options.map((option) => (
+            <option key={option.id} value={option.id} className="bg-surface text-ink">
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <Chevron />
+      </div>
+      <Error id={errorId} message={error} />
+    </div>
+  );
+}
+
+function Chevron() {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 16 16"
+      className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-ink-muted"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m4 6 4 4 4-4" />
+    </svg>
+  );
+}
+
 export function SelectField({
   label,
   value,

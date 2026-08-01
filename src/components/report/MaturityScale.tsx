@@ -1,4 +1,4 @@
-import type { MaturityLevel } from "@/lib/audit/report";
+import type { MaturityLevel } from "@/engine/scoreEngine";
 import { cn } from "@/lib/cn";
 
 const STAGES = ["Nascent", "Emerging", "Established", "Advanced", "Leading"];

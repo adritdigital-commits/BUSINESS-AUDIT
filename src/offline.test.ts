@@ -101,10 +101,17 @@ describe("the frontend runs without a backend", () => {
     expect(offenders(/^\s*["']use server["']/)).toEqual([]);
   });
 
-  it("keeps every question and service local to the bundle", () => {
-    const bank = readFileSync(join(SRC, "data", "questionBank.ts"), "utf8");
-    const services = readFileSync(join(SRC, "data", "services.ts"), "utf8");
-    for (const source of [bank, services]) {
+  it("keeps every question bank and the service catalogue local to the bundle", () => {
+    const banks = readdirSync(join(SRC, "data", "questionBanks"), { recursive: true })
+      .map((entry) => join(SRC, "data", "questionBanks", String(entry)))
+      .filter((path) => path.endsWith(".ts") && !path.endsWith(".test.ts"));
+
+    expect(banks.length).toBeGreaterThan(10);
+
+    const sources = [...banks, join(SRC, "data", "services.ts")].map((path) =>
+      readFileSync(path, "utf8")
+    );
+    for (const source of sources) {
       expect(/\bfetch\s*\(/.test(source)).toBe(false);
       expect(/https?:\/\//.test(source)).toBe(false);
     }
