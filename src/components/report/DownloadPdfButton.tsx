@@ -1,0 +1,71 @@
+"use client";
+
+import { useState } from "react";
+import { Button, type ButtonVariant } from "@/components/ui/Button";
+import type { Report } from "@/lib/audit/report";
+import { downloadAuditPdf } from "@/lib/pdf/download";
+
+export function DownloadPdfButton({
+  report,
+  variant = "primary",
+  label = "Download PDF",
+}: {
+  report: Report;
+  variant?: ButtonVariant;
+  label?: string;
+}) {
+  const [status, setStatus] = useState<"idle" | "working" | "error">("idle");
+
+  async function handleClick() {
+    setStatus("working");
+    try {
+      await downloadAuditPdf(report);
+      setStatus("idle");
+    } catch {
+      // Generation happens locally, so a failure here is an environment
+      // problem rather than a network one — say so and leave the page usable.
+      setStatus("error");
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-start gap-2">
+      <Button
+        variant={variant}
+        size="md"
+        onClick={handleClick}
+        disabled={status === "working"}
+        aria-busy={status === "working"}
+      >
+        {status === "working" ? (
+          <>
+            <span
+              aria-hidden
+              className="size-4 animate-spin rounded-full border-2 border-current/30 border-t-current"
+            />
+            Building your PDF…
+          </>
+        ) : (
+          <>
+            <svg viewBox="0 0 16 16" className="size-4" aria-hidden fill="none">
+              <path
+                d="M8 2.5v8m0 0L4.75 7.25M8 10.5l3.25-3.25M2.5 13h11"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            {label}
+          </>
+        )}
+      </Button>
+      {status === "error" ? (
+        <p role="alert" className="text-[13px] text-critical">
+          The PDF could not be generated in this browser. Use your browser&apos;s print
+          dialog to save this page instead.
+        </p>
+      ) : null}
+    </div>
+  );
+}

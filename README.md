@@ -1,29 +1,62 @@
 # RakeshProTech Business Growth Audit
 
-A consultant-grade business growth audit: gated conditional questions,
-weighted per-category scoring, a Digital Maturity Score, and an
-auto-generated report with strengths, gaps, prioritized recommendations,
-and a 90-day roadmap.
-
-The frontend (`src/components/AuditApp.tsx`) is the interactive prototype,
-unchanged. The backend below is the production layer it plugs into.
+A consultant-grade business growth audit: 35 questions across seven
+categories, weighted per-category scoring, a Digital Maturity Score, and an
+auto-generated report with strengths, gaps, prioritised recommendations, a
+90-day roadmap, a commercial proposal and a downloadable PDF.
 
 ## Getting started
 
 ```bash
 npm install
-cp .env.example .env        # fill in Supabase credentials
-npm run db:baseline         # one-time, on a fresh Supabase database
-npm run db:migrate          # apply migrations
-npm run db:seed             # load the 8 worked categories
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000). **No database, no
+Supabase project, no environment file and no network access are required** —
+the whole journey runs on the question bank bundled in `src/data`, and
+progress is kept in the browser's `localStorage`.
 
-Running without a Supabase project — including the local `auth` schema the
-migrations require, and which features work without real credentials — is
-covered in [LOCAL_DEV.md](LOCAL_DEV.md).
+The Prisma/Supabase backend documented further down still exists and still
+compiles; the frontend simply does not call it yet. See
+[LOCAL_DEV.md](LOCAL_DEV.md) for running the database layer.
+
+## The frontend
+
+```
+/                     Landing page, with a worked sample report
+/audit                Resumes at the furthest step your saved progress supports
+/audit/client         Step 1 — who the report is addressed to
+/audit/business       Step 2 — the business being assessed
+/audit/questions      Step 3 — 35 questions: previous, next, skip, autosave,
+                      keyboard entry, validation, live per-category scoring
+/report               Score, maturity stage, risk, category breakdown,
+                      strengths/weaknesses, quick wins, investment priority,
+                      90-day roadmap, recommended services
+/proposal             Executive summary, scope, effort, timeline, benefits,
+                      delivery schedule and terms — generated from the report
+```
+
+Everything is a pure function of `(answers, details)`:
+
+```
+src/data/questionBank.ts   7 categories × 5 questions, with the services each answer triggers
+src/data/services.ts       Service catalogue: deliverables, benefits, effort, timeline, cost
+src/lib/audit/scoring.ts   getPoints → category scores → weighted overall; triggered findings
+src/lib/audit/report.ts    Maturity stage, risk, strengths/gaps, quick wins, roadmap, budget
+src/lib/audit/proposal.ts  The commercial document, derived from the report
+src/lib/audit/storage.ts   Defensive localStorage persistence
+src/lib/audit/AuditProvider.tsx  The single source of truth for the audit in progress
+src/lib/pdf/               Client-side PDF export (dynamically imported at click time)
+```
+
+The screen, the proposal and the PDF are three renderings of one `Report`
+object, so they cannot disagree.
+
+`src/_deferred/` holds the pages, routes and middleware that require Prisma
+or Supabase. They are not routed and not executed — see
+[src/_deferred/README.md](src/_deferred/README.md) for what is there and how
+to restore it.
 
 ## Stack
 
@@ -46,8 +79,11 @@ prisma/
   seed.ts                        8 worked categories + service library
 
 src/
-  middleware.ts                  Session refresh + coarse route protection
+  _deferred/                     Prisma/Supabase-backed pages + middleware (not routed)
+  data/                          The bundled question bank and service catalogue
   lib/
+    audit/                       Local scoring, report, proposal, storage, provider
+    pdf/                         Client-side PDF export
     prisma.ts                    PrismaClient singleton (HMR-safe)
     auth.ts                      getCurrentProfile / requireRole guards
     api.ts                       Uniform error → JSON response mapping
@@ -62,9 +98,12 @@ src/
       admin.ts                   Service-role client (bypasses RLS)
   app/
     api/                         Route handlers (see "API" below)
-    page.tsx, layout.tsx         Existing frontend — untouched
+    page.tsx, audit/, report/,
+    proposal/                    The local-only audit journey
   components/
-    AuditApp.tsx                 Existing prototype UI — untouched
+    audit/, report/, charts/,
+    ui/, layout/                 The frontend's own components
+    AuditApp.tsx                 Earlier API-driven prototype, no longer routed
 ```
 
 ## Database
@@ -176,10 +215,17 @@ npm run db:studio        # browse data
 npm run db:reset         # drop, re-migrate, re-seed (destructive)
 ```
 
-## What's not built yet
+## Reconnecting the backend
 
-Per the architecture doc's phasing, still open: the admin panel UI (Phase 2),
-PDF/Excel export renderers (Phase 3), the client dashboard and magic-link
-email delivery (Phase 4), and content entry for the remaining ~37 categories.
-The report engine (`src/lib/report.ts`) is already the single source of truth
-those three renderers would share.
+The frontend is complete and self-contained. To put the database behind it:
+
+1. Restore the surfaces listed in [src/_deferred/README.md](src/_deferred/README.md),
+   deciding which owns `/audit` and `/report`.
+2. Map the API's category/question payloads onto the types in
+   `src/lib/audit/types.ts` and swap `src/data/questionBank.ts` for a loader.
+   Nothing else in the UI knows where the data came from.
+3. Persist `AuditState` server-side alongside `localStorage`, so an audit can
+   be resumed from another device.
+
+Still open beyond that: the admin panel UI, Excel export, the client
+dashboard, and magic-link email delivery.
