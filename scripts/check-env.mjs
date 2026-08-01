@@ -50,8 +50,36 @@ const REQUIRED = [
 const strict = process.argv.includes("--strict");
 const production = process.argv.includes("--production");
 
+/**
+ * Un-substituted placeholders from `.env.example` (or any template).
+ *
+ * These used to slip through entirely: DATABASE_URL was only checked for
+ * `startsWith("postgres")` and NEXT_PUBLIC_SUPABASE_URL for `https://`, so
+ * `postgresql://postgres.[project-ref]:[password]@aws-0-[region]...` and
+ * `https://[project-ref].supabase.co` both reported as correctly configured.
+ * A placeholder is never valid in any environment, so this runs always —
+ * not only under --production.
+ */
+const PLACEHOLDER_PATTERNS = [
+  { re: /\[[a-z0-9 _-]+\]/i, describe: (m) => `unsubstituted template token "${m}"` },
+  { re: /<[a-z0-9 _-]+>/i, describe: (m) => `unsubstituted template token "${m}"` },
+  { re: /\byour[-_](domain|handle|project|password|app)\b/i, describe: (m) => `template text "${m}"` },
+  { re: /\bplaceholder\b/i, describe: (m) => `the word "${m}"` },
+  { re: /\b(changeme|change_me|todo|fixme|example_key|dummy)\b/i, describe: (m) => `stub value "${m}"` },
+  { re: /\bxxx+\b/i, describe: (m) => `stub value "${m}"` },
+];
+
+function findPlaceholder(value) {
+  for (const { re, describe } of PLACEHOLDER_PATTERNS) {
+    const match = value.match(re);
+    if (match) return describe(match[0]);
+  }
+  return null;
+}
+
 const missing = [];
 const invalid = [];
+const placeholders = [];
 
 for (const item of REQUIRED) {
   const value = process.env[item.name];
@@ -59,7 +87,15 @@ for (const item of REQUIRED) {
     missing.push(item);
     continue;
   }
-  const problem = item.validate?.(value.trim());
+  const trimmed = value.trim();
+
+  const placeholder = findPlaceholder(trimmed);
+  if (placeholder) {
+    placeholders.push({ ...item, placeholder });
+    continue;
+  }
+
+  const problem = item.validate?.(trimmed);
   if (problem) invalid.push({ ...item, problem });
 }
 
@@ -70,7 +106,7 @@ for (const item of REQUIRED) {
 const prodProblems = [];
 const prodNotes = [];
 
-if (production && missing.length === 0) {
+if (production && missing.length === 0 && placeholders.length === 0) {
   const dbUrl = process.env.DATABASE_URL.trim();
   const directUrl = process.env.DIRECT_URL.trim();
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL.trim();
@@ -169,7 +205,12 @@ if (production && missing.length === 0) {
   }
 }
 
-if (missing.length === 0 && invalid.length === 0 && prodProblems.length === 0) {
+if (
+  missing.length === 0 &&
+  invalid.length === 0 &&
+  placeholders.length === 0 &&
+  prodProblems.length === 0
+) {
   console.log(`✓ All ${REQUIRED.length} required environment variables are set.`);
   if (production) {
     console.log("✓ Production shape checks passed (ports, pgbouncer, key roles, project consistency).");
@@ -184,6 +225,14 @@ console.log(`\n${label}: environment is not fully configured.\n`);
 if (missing.length > 0) {
   console.log("Missing:");
   for (const item of missing) console.log(`  ✗ ${item.name}\n      ${item.note}`);
+  console.log("");
+}
+
+if (placeholders.length > 0) {
+  console.log("Still contains placeholder values — these must be replaced with real credentials:");
+  for (const item of placeholders) {
+    console.log(`  ✗ ${item.name} — ${item.placeholder}\n      ${item.note}`);
+  }
   console.log("");
 }
 
@@ -210,6 +259,12 @@ console.log(
     "dashboard does not affect an existing deployment — you must redeploy.\n"
 );
 
-// A production shape problem is always fatal: unlike a missing variable during
-// a local build, it means the deployed app would point somewhere wrong.
+// Placeholders are reported loudly above but are only fatal under --strict /
+// --production, matching how a missing variable already behaves. The default
+// mode runs inside `npm run build`, and LOCAL_DEV.md documents leaving the
+// Supabase values as placeholders when working on the non-auth half of the
+// app — that must keep building.
+//
+// A production shape problem is always fatal: it means the deployed app would
+// point somewhere wrong.
 process.exit(strict || prodProblems.length > 0 ? 1 : 0);
