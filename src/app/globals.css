@@ -34,6 +34,22 @@
   --good: #0ca30c;
   --warning: #fab219;
   --critical: #d03b3b;
+
+  /*
+   * Composited tints.
+   *
+   * Tailwind cannot put an alpha onto a colour it only knows as `var(--x)`, so
+   * `bg-accent/10`, `border-accent/40` and every other opacity modifier on the
+   * palette above compile to nothing at all. These are the intended values,
+   * pre-composited, declared once here beside the colours they come from and
+   * used as `border-[color:var(--accent-line)]`.
+   */
+  --accent-line: rgba(229, 179, 58, 0.35);
+  --accent-line-strong: rgba(229, 179, 58, 0.45);
+  --accent-fill: rgba(229, 179, 58, 0.12);
+  --accent-ink-soft: rgba(229, 179, 58, 0.8);
+  --critical-line: rgba(208, 59, 59, 0.45);
+  --critical-fill: rgba(208, 59, 59, 0.1);
 }
 
 html {

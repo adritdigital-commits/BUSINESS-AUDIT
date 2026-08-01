@@ -60,10 +60,28 @@ const config: Config = {
           from: { opacity: "0" },
           to: { opacity: "1" },
         },
+        // Used only by /game. The reduced-motion rule in globals.css flattens
+        // all three to a single near-instant frame.
+        pop: {
+          from: { opacity: "0", transform: "scale(.94) translateY(10px)" },
+          to: { opacity: "1", transform: "scale(1) translateY(0)" },
+        },
+        "card-shake": {
+          "0%, 100%": { transform: "translateX(0)" },
+          "25%": { transform: "translateX(-4px)" },
+          "75%": { transform: "translateX(4px)" },
+        },
+        confetti: {
+          from: { opacity: "1", transform: "translateY(-10vh) rotate(0deg)" },
+          to: { opacity: "0", transform: "translateY(105vh) rotate(540deg)" },
+        },
       },
       animation: {
         "fade-up": "fade-up .38s cubic-bezier(.21,.6,.35,1) both",
         "fade-in": "fade-in .3s ease both",
+        pop: "pop .34s cubic-bezier(.21,.9,.35,1) both",
+        "card-shake": "card-shake .32s ease-in-out",
+        confetti: "confetti 2.6s linear forwards",
       },
     },
   },

@@ -64,7 +64,30 @@ production build.
                       investment priority, six-horizon roadmap, recommended services
 /proposal             Executive summary, scope, effort, timeline, benefits,
                       delivery schedule and terms — scoped to the triggered services
+/game                 A standalone twelve-pair memory game (see below)
 ```
+
+## /game
+
+A separate page that shares the palette and the UI primitives with the audit
+and nothing else — no shared state in either direction, asserted in
+`src/offline.test.ts`.
+
+```
+src/components/game/  GameBoard, MemoryCard, ScoreBoard, VictoryModal,
+                      GameHeader, CardSymbol
+src/lib/game/         deck.ts (12 symbols, 24 cards, Fisher–Yates)
+                      engine.ts (the rules, as pure functions)
+                      storage.ts (best score, defensively parsed)
+                      sound.ts (oscillator cues — no audio file to load)
+                      useMemoryGame.ts (the only stateful piece)
+```
+
+Timer, move counter, personal best in `localStorage`, restart (button or
+`R`), a win celebration, and synthesised sound with a toggle. Fully keyboard
+operable: Tab and arrow keys move, Enter or Space turns a card, the victory
+dialog traps focus and closes on Escape. Symbols are told apart by shape, not
+colour. Like the rest of the app it makes no network request at all.
 
 ## The assessment engine
 

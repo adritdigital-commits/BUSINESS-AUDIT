@@ -140,13 +140,29 @@ describe("the frontend runs without a backend", () => {
     expect(pkg.scripts.postinstall).toBeUndefined();
   });
 
-  it("routes only the pages the audit journey needs", () => {
+  it("routes only the audit journey and the standalone game", () => {
     const appDir = join(SRC, "app");
     const routes = readdirSync(appDir)
       .filter((entry) => statSync(join(appDir, entry)).isDirectory())
       .filter((entry) => entry !== "fonts")
       .sort();
-    expect(routes).toEqual(["audit", "proposal", "report"]);
+    expect(routes).toEqual(["audit", "game", "proposal", "report"]);
+  });
+
+  it("keeps the game independent of the audit, in both directions", () => {
+    // They share the palette and the UI primitives. They share no state, so
+    // neither can break the other.
+    const game = FILES.filter((file) => /[\\/](game)[\\/]/.test(file));
+    expect(game.length).toBeGreaterThan(5);
+
+    for (const file of game) {
+      const source = readFileSync(file, "utf8");
+      expect(/@\/(?:engine|data\/question|lib\/audit)/.test(source), file).toBe(false);
+    }
+
+    for (const file of FILES.filter((entry) => !/[\\/]game[\\/]/.test(entry))) {
+      expect(/@\/(?:lib|components)\/game/.test(readFileSync(file, "utf8")), file).toBe(false);
+    }
   });
 
   it("puts every page's directory separator check on a real path", () => {
