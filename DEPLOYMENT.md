@@ -44,14 +44,24 @@ npm ci
 export DATABASE_URL="<pooled connection string>"
 export DIRECT_URL="<direct connection string>"
 
-npm run db:migrate     # applies both migrations
+npm run db:baseline    # one-time, before the first migrate on a Supabase DB
+npm run db:migrate     # applies all three migrations
 npm run db:seed        # loads the 8 worked categories + service library
 ```
+
+> `db:baseline` is required on Supabase. Because `schema.prisma` manages both
+> `auth` and `public`, and Supabase always provisions `auth.users`, Prisma
+> sees a non-empty database with no migration history and aborts with
+> `P3005 The database schema is not empty` — even though `public` is empty.
+> `db:baseline` creates the empty `_prisma_migrations` table so `migrate
+> deploy` proceeds; it marks nothing as applied and skips no migration.
+> See SUPABASE_SETUP.md §3.
 
 Migration order matters and is handled automatically:
 1. `*_init` — tables, enums, indexes, foreign keys
 2. `*_auth_rls` — the `handle_new_user` trigger, role-escalation guard, and
    all RLS policies
+3. `*_consultations` — the `consultations` table, its enum, and its RLS policies
 
 > The `*_init` migration adds a foreign key from `public.profiles.id` to
 > `auth.users.id`, so it must run against a database where Supabase Auth is
