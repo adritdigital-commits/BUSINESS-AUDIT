@@ -66,6 +66,7 @@ export default function ReportPage() {
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <Link
+              prefetch={false}
               href="/audit/questions"
               className="rounded-full px-4 py-2 text-[13px] text-ink-secondary transition-colors hover:bg-white/[0.06] hover:text-ink"
             >

@@ -46,6 +46,13 @@ export function Button({
   );
 }
 
+/**
+ * `prefetch={false}` throughout: every route in this app is a small static
+ * page already covered by the shared bundle, so route prefetching buys no
+ * measurable speed and only adds background `?_rsc=` requests — which show up
+ * as cancelled entries in the Network tab whenever the visitor navigates
+ * before one lands.
+ */
 export function ButtonLink({
   variant = "primary",
   size = "md",
@@ -57,6 +64,7 @@ export function ButtonLink({
   return (
     <Link
       href={href}
+      prefetch={false}
       className={cn(BASE, VARIANTS[variant], SIZES[size], className)}
       {...props}
     >

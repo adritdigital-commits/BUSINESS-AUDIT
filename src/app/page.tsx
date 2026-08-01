@@ -101,7 +101,7 @@ export default function LandingPage() {
             </p>
 
             <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <ButtonLink href="/audit" size="lg">
+              <ButtonLink href="/audit/client" size="lg">
                 Start the audit
                 <svg viewBox="0 0 16 16" className="size-4" aria-hidden fill="none">
                   <path
@@ -202,7 +202,7 @@ export default function LandingPage() {
                 its own deliverables, effort and investment band.
               </p>
             </div>
-            <ButtonLink href="/audit" size="sm" className="mt-6 self-start">
+            <ButtonLink href="/audit/client" size="sm" className="mt-6 self-start">
               Start the audit
             </ButtonLink>
           </Card>
@@ -240,7 +240,7 @@ export default function LandingPage() {
               Answer {TOTAL_QUESTIONS} questions and get your score, your roadmap and
               your proposal — without talking to anyone first.
             </p>
-            <ButtonLink href="/audit" size="lg" className="mt-8">
+            <ButtonLink href="/audit/client" size="lg" className="mt-8">
               Start the audit
             </ButtonLink>
           </div>

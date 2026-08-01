@@ -141,6 +141,15 @@ function Footer({ reference }: { reference: string }) {
 
 // `wrap={false}` keeps the number and the title on the same page — without it
 // a section head that lands near a page break splits into a widow.
+//
+// It is only ever used on boxes of a small, fixed size, like this one and the
+// category meters. Never put it on a box whose height grows with the data: an
+// unwrappable box that outgrows the space left on the page makes the layout
+// engine compute a negative height, and rendering its border then fails with
+// "unsupported number: -8.8e+21". Use `minPresenceAhead` on those instead —
+// it asks for a page break rather than forbidding one. See
+// AuditPdfDocument.test.tsx, which renders the longest document the question
+// bank can produce.
 function SectionHead({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
     <View style={styles.sectionHead} wrap={false}>
@@ -252,7 +261,7 @@ export function AuditPdfDocument({ report }: { report: Report }) {
 
       {/* ------------------------------------------ page 2: priorities & plan */}
       <Page size="A4" style={styles.page}>
-        <View wrap={false}>
+        <View minPresenceAhead={96}>
           <SectionHead eyebrow="02" title="Strengths and weaknesses" />
           <View style={styles.row}>
             <View style={{ flex: 1, paddingRight: 10 }}>
@@ -341,7 +350,7 @@ export function AuditPdfDocument({ report }: { report: Report }) {
         <View style={styles.section}>
           <SectionHead eyebrow="04" title="90-day priority roadmap" />
           {report.roadmap.map((phase) => (
-            <View key={phase.key} style={styles.card} wrap={false}>
+            <View key={phase.key} style={styles.card} minPresenceAhead={72}>
               <View style={styles.spread}>
                 <Text style={styles.h3}>
                   {phase.window} — {phase.title}
@@ -378,7 +387,7 @@ export function AuditPdfDocument({ report }: { report: Report }) {
         <Page size="A4" style={styles.page}>
           <SectionHead eyebrow="05" title="Recommended services" />
           {report.recommendations.map((recommendation) => (
-            <View key={recommendation.service.id} style={styles.card} wrap={false}>
+            <View key={recommendation.service.id} style={styles.card} minPresenceAhead={72}>
               <View style={styles.spread}>
                 <Text style={styles.h3}>{recommendation.service.name}</Text>
                 <Text style={{ fontSize: 8.5, color: bandColorForPriority(recommendation.priority) }}>

@@ -3,6 +3,7 @@ import Link from "next/link";
 export function Logo({ href = "/" }: { href?: string }) {
   return (
     <Link
+      prefetch={false}
       href={href}
       className="group inline-flex items-center gap-2.5"
       aria-label="RakeshProTech — home"

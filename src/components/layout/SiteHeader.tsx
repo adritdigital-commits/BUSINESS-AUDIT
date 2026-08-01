@@ -27,6 +27,7 @@ export function SiteHeader() {
           <nav aria-label="Primary" className="hidden items-center gap-1 md:flex">
             {NAV.map((item) => (
               <Link
+                prefetch={false}
                 key={item.href}
                 href={item.href}
                 className={cn(
@@ -45,7 +46,7 @@ export function SiteHeader() {
         )}
 
         <ButtonLink
-          href={inFlow ? "/" : "/audit"}
+          href={inFlow ? "/" : "/audit/client"}
           size="sm"
           variant={inFlow ? "secondary" : "primary"}
         >

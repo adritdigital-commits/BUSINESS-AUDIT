@@ -38,6 +38,7 @@ export function ResumeBanner() {
             Start over
           </button>
           <Link
+            prefetch={false}
             href={href}
             className="rounded-full bg-accent px-4 py-2 text-[13px] font-medium text-accent-ink transition-[filter] hover:brightness-110"
           >

@@ -21,9 +21,11 @@ export function DownloadPdfButton({
     try {
       await downloadAuditPdf(report);
       setStatus("idle");
-    } catch {
-      // Generation happens locally, so a failure here is an environment
-      // problem rather than a network one — say so and leave the page usable.
+    } catch (error) {
+      // Generation happens locally, so a failure here is a bug or an
+      // environment limit, never a network problem. Log the cause — a
+      // swallowed exception here is undiagnosable — then leave the page usable.
+      console.error("[pdf] generation failed", error);
       setStatus("error");
     }
   }

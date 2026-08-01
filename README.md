@@ -17,9 +17,30 @@ Supabase project, no environment file and no network access are required** —
 the whole journey runs on the question bank bundled in `src/data`, and
 progress is kept in the browser's `localStorage`.
 
-The Prisma/Supabase backend documented further down still exists and still
-compiles; the frontend simply does not call it yet. See
+There is no `/api` route in the application: the frontend makes no HTTP
+request of any kind, so there is nothing to 500. `src/offline.test.ts`
+asserts that as a property of the source tree — it fails if any file under
+`src/` (outside `src/_deferred`) calls `fetch`, references an `/api/` path,
+imports Prisma or Supabase, or declares a server action.
+
+The Prisma/Supabase backend is preserved under `src/_deferred/`, which is
+excluded from the compiler, the linter and the test run. See
+[src/_deferred/README.md](src/_deferred/README.md) to restore it and
 [LOCAL_DEV.md](LOCAL_DEV.md) for running the database layer.
+
+### Verifying
+
+```bash
+npm run build     # 8 static routes, no /api/*
+npm test          # includes the offline guard and the PDF layout regression
+```
+
+In a production build (`npm run build && npm start`) the Network tab shows
+zero failed requests. Under `npm run dev`, Next 14's dev server issues a
+second RSC payload request per navigation and cancels the first, so you will
+see aborted `?_rsc=` entries for the app's own pages. They are not `/api`
+calls, they have no user-visible effect, and they do not occur in a
+production build.
 
 ## The frontend
 
@@ -53,20 +74,16 @@ src/lib/pdf/               Client-side PDF export (dynamically imported at click
 The screen, the proposal and the PDF are three renderings of one `Report`
 object, so they cannot disagree.
 
-`src/_deferred/` holds the pages, routes and middleware that require Prisma
-or Supabase. They are not routed and not executed — see
-[src/_deferred/README.md](src/_deferred/README.md) for what is there and how
-to restore it.
-
 ## Stack
 
 | Layer | Choice |
 |---|---|
 | Framework | Next.js 14 (App Router) + TypeScript |
-| DB / Auth | Supabase (Postgres + Auth) |
-| ORM | Prisma 6 |
-| Validation | Zod |
-| Charts | Recharts |
+| Styling | Tailwind CSS over CSS custom properties |
+| Charts | Hand-built SVG — no charting library |
+| PDF | @react-pdf/renderer, in the browser |
+| Data | Bundled TypeScript modules in `src/data` |
+| DB / Auth | Supabase + Prisma 6 — **deferred, see `src/_deferred`** |
 
 ## Folder structure
 
@@ -79,31 +96,31 @@ prisma/
   seed.ts                        8 worked categories + service library
 
 src/
-  _deferred/                     Prisma/Supabase-backed pages + middleware (not routed)
-  data/                          The bundled question bank and service catalogue
+  offline.test.ts                Fails if any backend dependency leaks into the frontend
+  data/
+    questionBank.ts              7 categories × 5 questions, bundled
+    services.ts                  The service catalogue
+    formOptions.ts               Select values for the two detail forms
   lib/
-    audit/                       Local scoring, report, proposal, storage, provider
-    pdf/                         Client-side PDF export
-    prisma.ts                    PrismaClient singleton (HMR-safe)
-    auth.ts                      getCurrentProfile / requireRole guards
-    api.ts                       Uniform error → JSON response mapping
-    scoring.ts                   computeScore, isVisible, collectRecommendations
-    report.ts                    generateReport (strengths/gaps/roadmap/budget)
-    questionBank.ts              Loads the active bank in scoring's shape
-    assessmentAccess.ts          Who may read/write a given assessment
-    supabase/
-      client.ts                  Browser client
-      server.ts                  Server Components / Route Handlers
-      middleware.ts              Session refresh helper
-      admin.ts                   Service-role client (bypasses RLS)
+    audit/                       Scoring, report, proposal, storage, provider, validation
+    pdf/                         Client-side PDF export (dynamic import at click time)
+    format.ts, cn.ts             Shared helpers
   app/
-    api/                         Route handlers (see "API" below)
-    page.tsx, audit/, report/,
-    proposal/                    The local-only audit journey
+    page.tsx                     Landing
+    audit/{client,business,questions}/   The three capture steps
+    report/, proposal/           The two outputs
   components/
     audit/, report/, charts/,
     ui/, layout/                 The frontend's own components
-    AuditApp.tsx                 Earlier API-driven prototype, no longer routed
+
+  _deferred/                     THE WHOLE BACKEND — not compiled, routed, linted or tested
+    app/api/**                   The route handlers that answered /api/*
+    app/{(auth),auth,admin,dashboard,consultation,audit-id,report-id}/
+    middleware.ts                Supabase session refresh
+    lib/{prisma,auth,api,apiClient,questionBank,scoring,report,…}.ts
+    lib/supabase/**              Browser, server, middleware and service-role clients
+    components/{AuditApp,admin,auth,consultation,dashboard}/
+    tests/factories.ts           Prisma-shaped fixtures
 ```
 
 ## Database
@@ -160,7 +177,9 @@ logs in, `PATCH /api/assessments/:id { claim: true }` attaches it to them.
 
 ## API
 
-Everything under `/api`. `[staff]` = ADMIN or STAFF required.
+These handlers now live under `src/_deferred/app/api` and are not routed.
+They are the contract to restore when the backend is reconnected.
+`[staff]` = ADMIN or STAFF required.
 
 ```
 GET    /api/categories                    Question bank (public; hides `purpose` from non-staff)
@@ -206,6 +225,7 @@ POST   /api/admin/import/json             [staff] upsert-only import
 ## Scripts
 
 ```bash
+npm run db:generate      # prisma generate — no longer run on install or build
 npm run db:baseline      # one-time Supabase prep before the first db:migrate
 npm run db:migrate       # prisma migrate deploy (production)
 npm run db:verify        # 58 read-only checks: schema, RLS, triggers, seed

@@ -10,13 +10,15 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
     globals: true,
-    include: ["src/**/*.{test,spec}.{ts,tsx}", "tests/**/*.{test,spec}.{ts,tsx}"],
-    exclude: ["node_modules", ".next"],
+    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    // src/_deferred is not part of the application; its tests travel with it
+    // and run again once it is restored.
+    exclude: ["node_modules", ".next", "src/_deferred/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],
       include: ["src/lib/**/*.ts", "src/components/**/*.tsx"],
-      exclude: ["src/lib/supabase/**", "src/lib/prisma.ts", "src/**/*.test.*"],
+      exclude: ["src/_deferred/**", "src/**/*.test.*"],
     },
   },
 });

@@ -13,13 +13,13 @@ export function SiteFooter() {
           </p>
         </div>
         <nav aria-label="Footer" className="flex flex-wrap gap-x-6 gap-y-2 text-[13px]">
-          <Link href="/audit" className="text-ink-secondary hover:text-ink">
+          <Link prefetch={false} href="/audit/client" className="text-ink-secondary hover:text-ink">
             Start the audit
           </Link>
-          <Link href="/#what-we-measure" className="text-ink-secondary hover:text-ink">
+          <Link prefetch={false} href="/#what-we-measure" className="text-ink-secondary hover:text-ink">
             What we measure
           </Link>
-          <Link href="/#outcomes" className="text-ink-secondary hover:text-ink">
+          <Link prefetch={false} href="/#outcomes" className="text-ink-secondary hover:text-ink">
             Outcomes
           </Link>
         </nav>
