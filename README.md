@@ -1,39 +1,159 @@
 # RakeshProTech Business Growth Audit
 
-A consultant-grade business growth audit: gated conditional questions,
-weighted per-category scoring, a Digital Maturity Score, and an
-auto-generated report with strengths, gaps, prioritized recommendations,
-and a 90-day roadmap.
+An adaptive, consultant-grade business assessment. It builds a business
+profile first, then selects the questions worth asking that particular
+business — up to 35 from a bank of 132, chosen by industry, stage, size,
+acquisition channels and stated priorities, with follow-ups unlocked by the
+answers themselves. Two different businesses do not get the same audit.
 
-The frontend (`src/components/AuditApp.tsx`) is the interactive prototype,
-unchanged. The backend below is the production layer it plugs into.
+It produces nine capability scores, an overall Digital Maturity Score with a
+confidence level, business risk and growth opportunity, a six-horizon roadmap
+costed per task, a proposal scoped only to what the answers triggered, and a
+downloadable PDF.
 
 ## Getting started
 
 ```bash
 npm install
-cp .env.example .env        # fill in Supabase credentials
-npm run db:baseline         # one-time, on a fresh Supabase database
-npm run db:migrate          # apply migrations
-npm run db:seed             # load the 8 worked categories
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000). **No database, no
+Supabase project, no environment file and no network access are required** —
+the whole journey runs on the question banks bundled in `src/data` and the
+rules in `src/engine`, and progress is kept in the browser's `localStorage`.
 
-Running without a Supabase project — including the local `auth` schema the
-migrations require, and which features work without real credentials — is
-covered in [LOCAL_DEV.md](LOCAL_DEV.md).
+There is no `/api` route in the application: the frontend makes no HTTP
+request of any kind, so there is nothing to 500. `src/offline.test.ts`
+asserts that as a property of the source tree — it fails if any file under
+`src/` (outside `src/_deferred`) calls `fetch`, references an `/api/` path,
+imports Prisma or Supabase, or declares a server action.
+
+The Prisma/Supabase backend is preserved under `src/_deferred/`, which is
+excluded from the compiler, the linter and the test run. See
+[src/_deferred/README.md](src/_deferred/README.md) to restore it and
+[LOCAL_DEV.md](LOCAL_DEV.md) for running the database layer.
+
+### Verifying
+
+```bash
+npm run build     # 8 static routes, no /api/*
+npm test          # includes the offline guard and the PDF layout regression
+```
+
+In a production build (`npm run build && npm start`) the Network tab shows
+zero failed requests. Under `npm run dev`, Next 14's dev server issues a
+second RSC payload request per navigation and cancels the first, so you will
+see aborted `?_rsc=` entries for the app's own pages. They are not `/api`
+calls, they have no user-visible effect, and they do not occur in a
+production build.
+
+## The frontend
+
+```
+/                     Landing page, with a worked sample report
+/audit                Resumes at the furthest step your saved progress supports
+/audit/client         Step 1 — who the report is addressed to
+/audit/business       Step 2 — the business profile, with a live preview of the
+                      assessment it has just produced
+/audit/questions      Step 3 — the adaptive flow: previous, next, skip, autosave,
+                      keyboard entry, validation, per-domain sections, live scoring,
+                      and the reason each question was selected
+/report               Maturity score, risk, opportunity, confidence, nine capability
+                      scores, strengths/weaknesses, quick wins vs long-term work,
+                      investment priority, six-horizon roadmap, recommended services
+/proposal             Executive summary, scope, effort, timeline, benefits,
+                      delivery schedule and terms — scoped to the triggered services
+/game                 A standalone twelve-pair memory game (see below)
+```
+
+## /game
+
+A separate page that shares the palette and the UI primitives with the audit
+and nothing else — no shared state in either direction, asserted in
+`src/offline.test.ts`.
+
+```
+src/components/game/  GameBoard, MemoryCard, ScoreBoard, VictoryModal,
+                      GameHeader, CardSymbol
+src/lib/game/         deck.ts (12 symbols, 24 cards, Fisher–Yates)
+                      engine.ts (the rules, as pure functions)
+                      storage.ts (best score, defensively parsed)
+                      sound.ts (oscillator cues — no audio file to load)
+                      useMemoryGame.ts (the only stateful piece)
+```
+
+Timer, move counter, personal best in `localStorage`, restart (button or
+`R`), a win celebration, and synthesised sound with a toggle. Fully keyboard
+operable: Tab and arrow keys move, Enter or Space turns a card, the victory
+dialog traps focus and closes on Escape. Symbols are told apart by shape, not
+colour. Like the rest of the app it makes no network request at all.
+
+## The assessment engine
+
+All business logic lives in `src/engine`. **No rule is written inside a React
+component** — the components render what the engine returns.
+
+```
+src/engine/
+  types.ts                 The domain: 9 capability domains, the profile, and the
+                           declarative `Condition` union every rule is expressed in
+  domains.ts               The nine domains and their base weights
+  businessProfile/         Profile options + `deriveSignals()` — hasWebsite,
+                           isLocal, isB2B, isYoung, isSmallTeam, prioritySet, …
+  questionEngine/          `planAssessment(profile, answers)`
+    conditions.ts          Evaluates a Condition, and explains it to the user
+    selection.ts           Quotas, relevance ranking, screening breadth, ordering
+  industryRules/           13 verticals: domain emphasis, injected topics, playbook;
+                           plus the goal → domain weight table
+  scoreEngine/             Nine domain scores, maturity stage, confidence, risk,
+                           growth opportunity
+  recommendationEngine/    Findings → ranked engagements, each citing its evidence
+  roadmapEngine/           Six horizons, prerequisites, team-size concurrency
+  proposalEngine/          The commercial document, from the recommendations only
+```
+
+How a question is chosen:
+
+1. **Eligibility.** Every question declares `triggerConditions` — data, not
+   code, so a rule is inspectable, testable and explainable. A business with
+   no website is not asked about page speed, search rankings or site
+   analytics; it is asked how customers reach it instead.
+2. **Quotas.** 10 core + 10 industry + 10 goal + 5 business-size = 35, with
+   spillover so a short industry bank still yields a full-length assessment.
+3. **Screening breadth.** Every domain with anything eligible gets at least
+   one question before depth is added, so the nine-axis report has no holes.
+   A domain stays unscored only when nothing about it applies.
+4. **Relevance.** Ranked by question weight × industry emphasis × goal
+   emphasis, adjusted for the channels the business actually uses and its
+   stage. Selection is deterministic — the same profile always produces the
+   same set — and already-answered questions are pinned, so the flow only ever
+   grows forwards.
+5. **Follow-ups.** An answer can unlock a deeper question, inserted directly
+   after its parent and removed again if the parent answer changes.
+
+Data the engine reads:
+
+```
+src/data/questionBanks/       10 domain banks + 10 industry banks
+                              132 questions: 61 domain, 60 industry, 11 follow-ups
+src/data/services.ts          39 services: deliverables, benefits, effort,
+                              timeline, cost, difficulty, impact, ROI, horizon
+```
+
+The screen, the proposal and the PDF are three renderings of one `Assessment`
+object, so they cannot disagree.
 
 ## Stack
 
 | Layer | Choice |
 |---|---|
 | Framework | Next.js 14 (App Router) + TypeScript |
-| DB / Auth | Supabase (Postgres + Auth) |
-| ORM | Prisma 6 |
-| Validation | Zod |
-| Charts | Recharts |
+| Styling | Tailwind CSS over CSS custom properties |
+| Charts | Hand-built SVG — no charting library |
+| PDF | @react-pdf/renderer, in the browser |
+| Data | Bundled TypeScript modules in `src/data`, rules in `src/engine` |
+| DB / Auth | Supabase + Prisma 6 — **deferred, see `src/_deferred`** |
 
 ## Folder structure
 
@@ -46,25 +166,34 @@ prisma/
   seed.ts                        8 worked categories + service library
 
 src/
-  middleware.ts                  Session refresh + coarse route protection
+  offline.test.ts                Fails if any backend dependency leaks into the frontend
+  engine/                        The assessment engine — see above. All business rules.
+    businessProfile/ questionEngine/ industryRules/
+    scoreEngine/ recommendationEngine/ roadmapEngine/ proposalEngine/
+    fixtures.ts                  Shared test businesses: clinic, manufacturer, restaurant
+  data/
+    questionBanks/               10 domain banks + industry/ — 132 questions
+    services.ts                  The service catalogue
   lib/
-    prisma.ts                    PrismaClient singleton (HMR-safe)
-    auth.ts                      getCurrentProfile / requireRole guards
-    api.ts                       Uniform error → JSON response mapping
-    scoring.ts                   computeScore, isVisible, collectRecommendations
-    report.ts                    generateReport (strengths/gaps/roadmap/budget)
-    questionBank.ts              Loads the active bank in scoring's shape
-    assessmentAccess.ts          Who may read/write a given assessment
-    supabase/
-      client.ts                  Browser client
-      server.ts                  Server Components / Route Handlers
-      middleware.ts              Session refresh helper
-      admin.ts                   Service-role client (bypasses RLS)
+    audit/                       Storage, provider, validation — state, not rules
+    pdf/                         Client-side PDF export (dynamic import at click time)
+    format.ts, cn.ts             Shared helpers
   app/
-    api/                         Route handlers (see "API" below)
-    page.tsx, layout.tsx         Existing frontend — untouched
+    page.tsx                     Landing
+    audit/{client,business,questions}/   The three capture steps
+    report/, proposal/           The two outputs
   components/
-    AuditApp.tsx                 Existing prototype UI — untouched
+    audit/, report/, charts/,
+    ui/, layout/                 The frontend's own components
+
+  _deferred/                     THE WHOLE BACKEND — not compiled, routed, linted or tested
+    app/api/**                   The route handlers that answered /api/*
+    app/{(auth),auth,admin,dashboard,consultation,audit-id,report-id}/
+    middleware.ts                Supabase session refresh
+    lib/{prisma,auth,api,apiClient,questionBank,scoring,report,…}.ts
+    lib/supabase/**              Browser, server, middleware and service-role clients
+    components/{AuditApp,admin,auth,consultation,dashboard}/
+    tests/factories.ts           Prisma-shaped fixtures
 ```
 
 ## Database
@@ -121,7 +250,9 @@ logs in, `PATCH /api/assessments/:id { claim: true }` attaches it to them.
 
 ## API
 
-Everything under `/api`. `[staff]` = ADMIN or STAFF required.
+These handlers now live under `src/_deferred/app/api` and are not routed.
+They are the contract to restore when the backend is reconnected.
+`[staff]` = ADMIN or STAFF required.
 
 ```
 GET    /api/categories                    Question bank (public; hides `purpose` from non-staff)
@@ -167,6 +298,7 @@ POST   /api/admin/import/json             [staff] upsert-only import
 ## Scripts
 
 ```bash
+npm run db:generate      # prisma generate — no longer run on install or build
 npm run db:baseline      # one-time Supabase prep before the first db:migrate
 npm run db:migrate       # prisma migrate deploy (production)
 npm run db:verify        # 58 read-only checks: schema, RLS, triggers, seed
@@ -176,10 +308,23 @@ npm run db:studio        # browse data
 npm run db:reset         # drop, re-migrate, re-seed (destructive)
 ```
 
-## What's not built yet
+## Reconnecting the backend
 
-Per the architecture doc's phasing, still open: the admin panel UI (Phase 2),
-PDF/Excel export renderers (Phase 3), the client dashboard and magic-link
-email delivery (Phase 4), and content entry for the remaining ~37 categories.
-The report engine (`src/lib/report.ts`) is already the single source of truth
-those three renderers would share.
+The frontend is complete and self-contained. To put the database behind it:
+
+1. Restore the surfaces listed in [src/_deferred/README.md](src/_deferred/README.md),
+   deciding which owns `/audit` and `/report`.
+2. Map the API's category/question payloads onto `Question` in
+   `src/engine/types.ts` and swap `src/data/questionBanks/index.ts` for a
+   loader. The engine consumes a bank, not a source; nothing above it knows
+   where the questions came from.
+3. Persist `AuditState` server-side alongside `localStorage`, so an audit can
+   be resumed from another device.
+
+Adding a vertical is two files and no code changes elsewhere: a bank in
+`src/data/questionBanks/industry/`, and a rule in
+`src/engine/industryRules/verticals.ts` declaring its domain emphasis,
+priority services, injected topics and narrative.
+
+Still open beyond that: the admin panel UI, Excel export, the client
+dashboard, and magic-link email delivery.

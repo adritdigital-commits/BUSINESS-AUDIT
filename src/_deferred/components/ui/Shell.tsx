@@ -6,7 +6,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ minHeight: "100%", background: colors.bg, fontFamily: fonts.sans }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
         a { color: inherit; }
